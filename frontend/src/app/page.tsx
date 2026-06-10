@@ -322,7 +322,7 @@ export default function Home() {
       {/* Disclaimer Modal */}
       {showDisclaimer && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/75 backdrop-blur-md"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-gray-950/75 backdrop-blur-md"
           onClick={() => setShowDisclaimer(false)}
           onKeyDown={(e) => { if (e.key === 'Escape') setShowDisclaimer(false); }}
           role="dialog"
