@@ -47,7 +47,7 @@ export default function Home() {
   const [selectedPoint, setSelectedPoint] = useState<PointData | null>(null);
   const [historyData, setHistoryData] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
