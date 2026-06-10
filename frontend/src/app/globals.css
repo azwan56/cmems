@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+
+/* Radar Sweep Ring Animation */
+@keyframes radar-sweep {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 40;
+  }
+}
+
+.radar-sweep-path {
+  stroke-dasharray: 8, 4;
+  animation: radar-sweep 4s linear infinite;
+}
+
+/* Marker Glow Animation */
+@keyframes marker-glow {
+  0%, 100% {
+    fill-opacity: 0.3;
+    stroke-opacity: 0.6;
+    stroke-width: 2px;
+  }
+  50% {
+    fill-opacity: 0.7;
+    stroke-opacity: 1;
+    stroke-width: 4px;
+  }
+}
+
+.marker-pulse-glow {
+  animation: marker-glow 1.5s ease-in-out infinite;
+}
+

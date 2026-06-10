@@ -1,0 +1,24 @@
+# Python local environment and dependencies
+**/venv/
+**/*.pyc
+**/__pycache__/
+
+# Node.js local environment
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+
+# Local data and secrets
+**/data/
+**/*.nc
+**/.env*
+!**/.env.example
+**/firebase-key.json
+
+# Logs and test artifacts
+**/*.log
+**/screen.png
+
+# OS metadata
+**/.DS_Store

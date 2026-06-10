@@ -1,0 +1,7 @@
+copernicusmarine==2.4.1
+firebase-admin==7.4.0
+python-dotenv==1.2.2
+xarray==2026.4.0
+h5netcdf==1.8.1
+requests==2.34.2
+global-land-mask==1.0.0

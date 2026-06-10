@@ -1,0 +1,9 @@
+# Ignore local environment and data for Google Cloud Build
+venv/
+data/
+.env
+firebase-key.json
+__pycache__/
+*.pyc
+.git
+.github

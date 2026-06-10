@@ -1,0 +1,276 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+const Map = dynamic(() => import('@/components/Map'), { 
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-full w-full bg-gray-900 text-white font-mono animate-pulse">Initializing CMEMS Radar...</div>
+});
+
+export default function Home() {
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const [selectedPoint, setSelectedPoint] = useState<any>(null);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [alertsRes, metricsRes] = await Promise.all([
+          fetch('/api/alerts'),
+          fetch('/api/metrics')
+        ]);
+        
+        const alertsData = await alertsRes.json();
+        const metricsData = await metricsRes.json();
+        
+        if (alertsData.alerts) setAlerts(alertsData.alerts);
+        if (metricsData.metrics) setMetrics(metricsData.metrics);
+      } catch (error) {
+        console.error("Failed to fetch data", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+    
+    // Poll every 60 seconds
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch history when selectedPoint changes
+  useEffect(() => {
+    if (!selectedPoint) {
+      setHistoryData([]);
+      return;
+    }
+
+    async function fetchHistory() {
+      setLoadingHistory(true);
+      try {
+        const res = await fetch(`/api/history?lat=${selectedPoint.lat}&lon=${selectedPoint.lon}&variable=${selectedPoint.variable}`);
+        const data = await res.json();
+        if (data.history) {
+          setHistoryData(data.history);
+        }
+      } catch (error) {
+        console.error("Failed to fetch history", error);
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
+
+    fetchHistory();
+  }, [selectedPoint]);
+
+  // Deduplicate and group history by date using a plain object to avoid duplicate X-axis labels
+  const chartDataObj: Record<string, number> = {};
+  historyData.forEach(h => {
+    const dateStr = new Date(h.timestamp).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+    chartDataObj[dateStr] = parseFloat(h.value.toFixed(2));
+  });
+  const chartData = Object.entries(chartDataObj).map(([date, value]) => ({
+    date,
+    value
+  }));
+
+  return (
+    <div className="flex h-screen bg-gray-950 text-slate-200 overflow-hidden font-sans">
+      {/* Sidebar */}
+      <div className="w-96 bg-gray-900 border-r border-gray-800 flex flex-col z-10 shadow-2xl">
+        <div className="p-6 border-b border-gray-800 bg-gray-900/80 backdrop-blur-md">
+          <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-teal-400 via-blue-400 to-indigo-500">
+            CMEMS 生态雷达
+          </h1>
+          <p className="text-xs text-gray-400 mt-2 tracking-wide uppercase">中国沿海海洋生态预警系统</p>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">实时预警追踪 ({alerts.length})</h2>
+            <div className="flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-teal-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+            </div>
+          </div>
+          
+          {loading ? (
+            <div className="animate-pulse flex space-x-4">
+              <div className="flex-1 space-y-4 py-1">
+                <div className="h-20 bg-gray-800 rounded-lg w-full"></div>
+                <div className="h-20 bg-gray-800 rounded-lg w-full"></div>
+              </div>
+            </div>
+          ) : alerts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 border border-dashed border-gray-700 rounded-lg text-gray-500 text-sm">
+              <span className="text-2xl mb-2">🌊</span>
+              暂无预警，海域生态健康。
+            </div>
+          ) : (
+            alerts.map((alert) => (
+              <div 
+                key={alert.id} 
+                className={`p-4 rounded-xl border backdrop-blur-sm transition-all hover:scale-[1.02] cursor-pointer ${
+                  selectedAlert?.id === alert.id
+                    ? 'border-teal-400 bg-teal-950/30 ring-2 ring-teal-500/20 shadow-[0_0_20px_rgba(20,184,166,0.25)]'
+                    : alert.level === 'CRITICAL' 
+                      ? 'bg-red-950/40 border-red-900/50 shadow-[0_0_15px_rgba(220,38,38,0.1)] hover:border-red-700/50' 
+                      : 'bg-yellow-950/40 border-yellow-900/50 shadow-[0_0_15px_rgba(217,119,6,0.1)] hover:border-yellow-700/50'
+                }`}
+                onClick={() => {
+                  const isSelected = selectedAlert?.id === alert.id;
+                  const nextAlert = isSelected ? null : alert;
+                  setSelectedAlert(nextAlert);
+                  setSelectedPoint(nextAlert ? {
+                    lat: alert.lat,
+                    lon: alert.lon,
+                    variable: alert.type === '赤潮预警' ? 'chl' : 'o2',
+                    name: alert.type
+                  } : null);
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full tracking-wider uppercase ${
+                      alert.level === 'CRITICAL' ? 'bg-red-900/80 text-red-200' : 'bg-yellow-900/80 text-yellow-200'
+                    }`}>
+                      {alert.type.replace('_', ' ')}
+                    </span>
+                    {selectedAlert?.id === alert.id && (
+                      <span className="text-[10px] text-teal-400 font-bold animate-pulse">● 定位中</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-gray-500 font-mono">
+                    {new Date(alert.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-200 leading-relaxed font-medium">{alert.message}</p>
+                <div className="mt-3 pt-3 border-t border-gray-800/50 flex justify-between text-[11px] text-gray-500 font-mono">
+                  <span>Lat: {alert.lat.toFixed(4)}</span>
+                  <span>Lon: {alert.lon.toFixed(4)}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Historical Chart Panel */}
+        {selectedPoint && (
+          <div className="p-5 border-t border-gray-800 bg-gray-900/90 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-300 tracking-wider uppercase">
+                📈 {selectedPoint.name} - 7日趋势
+              </span>
+              <button 
+                onClick={() => {
+                  setSelectedPoint(null);
+                  setSelectedAlert(null);
+                }}
+                className="text-gray-500 hover:text-gray-300 text-xs font-mono"
+              >
+                [关闭]
+              </button>
+            </div>
+            {loadingHistory ? (
+              <div className="h-40 flex items-center justify-center text-xs text-gray-500 font-mono animate-pulse">
+                加载趋势数据中...
+              </div>
+            ) : historyData.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-xs text-gray-500 font-mono text-center p-4">
+                暂无该点位 7 日历史趋势数据
+              </div>
+            ) : (
+              <div className="h-40 w-full mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#64748b" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false} 
+                    />
+                    <YAxis 
+                      stroke="#64748b" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#1e293b', borderColor: '#475569', borderRadius: '8px' }}
+                      labelStyle={{ color: '#94a3b8', fontSize: '10px' }}
+                      itemStyle={{ color: '#2dd4bf', fontSize: '11px' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke={selectedPoint.variable === 'chl' ? '#10b981' : '#3b82f6'} 
+                      strokeWidth={2}
+                      dot={{ r: 3, strokeWidth: 1 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <div className="text-[10px] text-gray-500 font-mono flex justify-between border-t border-gray-800/50 pt-2">
+              <span>纬度: {selectedPoint.lat.toFixed(4)}</span>
+              <span>经度: {selectedPoint.lon.toFixed(4)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Sidebar Footer / Explanation Panel */}
+        <div className="p-5 border-t border-gray-800/80 bg-gray-900/90 text-[11px] text-gray-400 space-y-2.5">
+          <div className="flex items-center gap-1.5 font-semibold text-gray-300 text-xs">
+            <span>ℹ️</span>
+            <span>雷达监测机制与图例</span>
+          </div>
+          <p className="leading-relaxed text-gray-400">
+            系统覆盖中国沿海全海域。为聚焦高风险区域，仅对**指标异常点**进行截取与渲染（空白海域表示水质处于安全区间）：
+          </p>
+          <div className="grid grid-cols-2 gap-2 pt-1 font-medium text-gray-300">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span>叶绿素异常 (&gt;3.0)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-500"></span>
+              <span>低氧风险 (&lt;200)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+              <span>赤潮预警</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+              <span>水体缺氧警报</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-500 pt-1.5 leading-normal border-t border-gray-800/60">
+            * 提示：点击地图点位或预警卡片以查看 7 日历史趋势。同一位置多次预警表示事件持续演进。
+          </p>
+        </div>
+      </div>
+
+      {/* Main Map Area */}
+      <div className="flex-1 relative bg-gray-950">
+        <Map 
+          metrics={metrics} 
+          alerts={alerts} 
+          selectedAlert={selectedAlert} 
+          onSelectAlert={setSelectedAlert} 
+          selectedPoint={selectedPoint}
+          onSelectPoint={setSelectedPoint}
+        />
+      </div>
+    </div>
+  );
+}
