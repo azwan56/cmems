@@ -1,12 +1,34 @@
-"use client";
-
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+
+interface AlertData {
+  id: string;
+  lat: number;
+  lon: number;
+  type: string;
+  level: string;
+  message: string;
+  timestamp: string;
+}
+
+interface MetricData {
+  id: string;
+  lat: number;
+  lon: number;
+  variable: string;
+  value: number;
+}
+
+interface PointData {
+  lat: number;
+  lon: number;
+  variable: string;
+  name: string;
+}
 
 // Map controller to handle pan/fly actions when an alert is selected
-function MapController({ selectedAlert }: { selectedAlert: any }) {
+function MapController({ selectedAlert }: { selectedAlert: AlertData | null }) {
   const map = useMap();
   useEffect(() => {
     if (selectedAlert) {
@@ -24,15 +46,14 @@ export default function Map({
   alerts, 
   selectedAlert, 
   onSelectAlert,
-  selectedPoint,
   onSelectPoint
 }: { 
-  metrics: any[], 
-  alerts: any[], 
-  selectedAlert: any, 
-  onSelectAlert: (alert: any) => void,
-  selectedPoint: any,
-  onSelectPoint: (point: any) => void
+  metrics: MetricData[], 
+  alerts: AlertData[], 
+  selectedAlert: AlertData | null, 
+  onSelectAlert: (alert: AlertData | null) => void,
+  selectedPoint: PointData | null,
+  onSelectPoint: (point: PointData | null) => void
 }) {
   // Center of East China Sea
   const center: [number, number] = [28.0, 122.0];

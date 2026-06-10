@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -9,13 +9,43 @@ const Map = dynamic(() => import('@/components/Map'), {
   loading: () => <div className="flex items-center justify-center h-full w-full bg-gray-900 text-white font-mono animate-pulse">Initializing CMEMS Radar...</div>
 });
 
+interface AlertData {
+  id: string;
+  lat: number;
+  lon: number;
+  type: string;
+  level: string;
+  message: string;
+  timestamp: string;
+}
+
+interface MetricData {
+  id: string;
+  lat: number;
+  lon: number;
+  variable: string;
+  value: number;
+}
+
+interface PointData {
+  lat: number;
+  lon: number;
+  variable: string;
+  name: string;
+}
+
+interface HistoryEntry {
+  timestamp: string;
+  value: number;
+}
+
 export default function Home() {
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const [metrics, setMetrics] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<AlertData[]>([]);
+  const [metrics, setMetrics] = useState<MetricData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedAlert, setSelectedAlert] = useState<any>(null);
-  const [selectedPoint, setSelectedPoint] = useState<any>(null);
-  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [selectedAlert, setSelectedAlert] = useState<AlertData | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<PointData | null>(null);
+  const [historyData, setHistoryData] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
 
@@ -48,38 +78,45 @@ export default function Home() {
   // Fetch history when selectedPoint changes
   useEffect(() => {
     if (!selectedPoint) {
-      setHistoryData([]);
       return;
     }
 
+    const point = selectedPoint; // Capture for closure type narrowing
+    let cancelled = false;
+
     async function fetchHistory() {
       setLoadingHistory(true);
+      setHistoryData([]); // Clear previous data before fetching
       try {
-        const res = await fetch(`/api/history?lat=${selectedPoint.lat}&lon=${selectedPoint.lon}&variable=${selectedPoint.variable}`);
+        const res = await fetch(`/api/history?lat=${point.lat}&lon=${point.lon}&variable=${point.variable}`);
         const data = await res.json();
-        if (data.history) {
+        if (!cancelled && data.history) {
           setHistoryData(data.history);
         }
       } catch (error) {
         console.error("Failed to fetch history", error);
       } finally {
-        setLoadingHistory(false);
+        if (!cancelled) {
+          setLoadingHistory(false);
+        }
       }
     }
 
     fetchHistory();
+
+    return () => { cancelled = true; };
   }, [selectedPoint]);
 
-  // Deduplicate and group history by date using a plain object to avoid duplicate X-axis labels
-  const chartDataObj: Record<string, number> = {};
-  historyData.forEach(h => {
-    const dateStr = new Date(h.timestamp).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
-    chartDataObj[dateStr] = parseFloat(h.value.toFixed(2));
-  });
-  const chartData = Object.entries(chartDataObj).map(([date, value]) => ({
-    date,
-    value
-  }));
+  // Deduplicate and group history by date using useMemo to avoid recalculation
+  const chartData = useMemo(() => {
+    const chartDataObj: Record<string, number> = {};
+    historyData.forEach(h => {
+      const dateStr = new Date(h.timestamp).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+      chartDataObj[dateStr] = parseFloat(h.value.toFixed(2));
+    });
+    return Object.entries(chartDataObj).map(([date, value]) => ({ date, value }));
+  }, [historyData]);
+
 
   return (
     <div className="flex h-screen bg-gray-950 text-slate-200 overflow-hidden font-sans">
@@ -284,8 +321,18 @@ export default function Home() {
 
       {/* Disclaimer Modal */}
       {showDisclaimer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/75 backdrop-blur-md transition-all">
-          <div className="bg-gray-900/90 border border-gray-800 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/75 backdrop-blur-md"
+          onClick={() => setShowDisclaimer(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setShowDisclaimer(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="数据免责与科学声明"
+        >
+          <div 
+            className="bg-gray-900/90 border border-gray-800 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl space-y-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-2 text-amber-500 font-semibold text-base border-b border-gray-800 pb-3">
               <span>⚠️</span>
               <span>数据免责与科学声明</span>
