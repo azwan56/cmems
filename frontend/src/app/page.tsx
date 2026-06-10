@@ -17,6 +17,7 @@ export default function Home() {
   const [selectedPoint, setSelectedPoint] = useState<any>(null);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -257,6 +258,15 @@ export default function Home() {
           <p className="text-[10px] text-gray-500 pt-1.5 leading-normal border-t border-gray-800/60">
             * 提示：点击地图点位或预警卡片以查看 7 日历史趋势。同一位置多次预警表示事件持续演进。
           </p>
+          <div className="pt-2 flex justify-between items-center text-[10px] text-gray-500 border-t border-gray-800/40">
+            <span>数据源: CMEMS 卫星监测</span>
+            <button 
+              onClick={() => setShowDisclaimer(true)}
+              className="text-teal-400 hover:text-teal-300 underline transition-colors cursor-pointer"
+            >
+              免责与科学声明
+            </button>
+          </div>
         </div>
       </div>
 
@@ -271,6 +281,46 @@ export default function Home() {
           onSelectPoint={setSelectedPoint}
         />
       </div>
+
+      {/* Disclaimer Modal */}
+      {showDisclaimer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/75 backdrop-blur-md transition-all">
+          <div className="bg-gray-900/90 border border-gray-800 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-2 text-amber-500 font-semibold text-base border-b border-gray-800 pb-3">
+              <span>⚠️</span>
+              <span>数据免责与科学声明</span>
+            </div>
+            
+            <div className="text-[11px] text-slate-300 space-y-3 leading-relaxed max-h-96 overflow-y-auto pr-1">
+              <p>
+                <strong>1. 非官方权威预警</strong><br />
+                本平台所涉的“赤潮预警”、“水体缺氧警报”等各类生态异常提示与数据点位，均基于欧盟哥白尼海洋服务（CMEMS）公开的卫星遥感及物理模型反演算法得出，<strong>并非中华人民共和国各级官方机构发布的法定预警通告</strong>。
+              </p>
+              <p>
+                <strong>2. 仅限科研与技术演示</strong><br />
+                本系统主要用于科学研究交流、教育科普以及全栈数据可视化大屏的技术展示，<strong>严禁用于</strong>海洋导航、渔业生产、养殖规划、防灾决策或其他高风险生产作业。
+              </p>
+              <p>
+                <strong>3. 数据时效性与局限性</strong><br />
+                由于卫星轨道周期、云层覆盖、近岸陆地滤波算法以及反演模型的时空分辨率限制，部分点位数据可能存在一定的时间滞后，或者在海岸线附近产生少许偏差（陆地漂移过滤已进行优化但无法完全消除）。本平台不对数据的百分之百准确性、完整性和实时性提供任何明示或暗示的担保。
+              </p>
+              <p>
+                <strong>4. 赔偿豁免责任</strong><br />
+                用户据此平台数据做出的任何生产决策或商业行为，由此引发的直接或间接财产损失、人身安全事件或纠纷，本平台及其开发者<strong>均不承担任何形式的法律责任或经济赔偿责任</strong>。
+              </p>
+            </div>
+            
+            <div className="pt-3 border-t border-gray-800 flex justify-end">
+              <button 
+                onClick={() => setShowDisclaimer(false)}
+                className="px-5 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 active:scale-95 text-xs text-white font-semibold transition-all shadow-lg shadow-teal-500/25 cursor-pointer"
+              >
+                我已阅读并知晓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
