@@ -41,9 +41,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Invalid variable. Must be one of: ${VALID_VARIABLES.join(', ')}` }, { status: 400 });
     }
 
-    // Filter by variable in Firestore to reduce reads, then limit results
+    // Fetch metrics ordered by timestamp with a safety limit.
+    // Note: combining .where('variable') with .orderBy('timestamp') requires a
+    // composite index in Firestore. To avoid index dependency, we filter in-memory
+    // but cap total reads with .limit() to prevent unbounded queries.
     const metricsSnapshot = await db.collection('metrics')
-      .where('variable', '==', variable)
       .orderBy('timestamp', 'asc')
       .limit(MAX_HISTORY_DOCS)
       .get();
@@ -60,7 +62,8 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter(m => {
-        return Math.abs(m.lat - targetLat) < COORD_TOLERANCE &&
+        return m.variable === variable &&
+               Math.abs(m.lat - targetLat) < COORD_TOLERANCE &&
                Math.abs(m.lon - targetLon) < COORD_TOLERANCE;
       });
 
