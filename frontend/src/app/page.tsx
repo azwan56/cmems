@@ -126,7 +126,7 @@ export default function Home() {
           <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-teal-400 via-blue-400 to-indigo-500">
             CMEMS 生态雷达
           </h1>
-          <p className="text-xs text-gray-400 mt-2 tracking-wide uppercase">中国沿海海洋生态预警系统</p>
+          <p className="text-xs text-gray-400 mt-2 tracking-wide uppercase">中国沿海海洋生态预警系统 - 演示版</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">

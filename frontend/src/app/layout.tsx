@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CMEMS 生态雷达 - 中国沿海海洋生态预警系统",
+  title: "CMEMS 生态雷达 - 中国沿海海洋生态预警系统 - 演示版",
   description: "基于欧盟哥白尼海洋服务（CMEMS）高精度全球海洋绿色生物地球化学数据开发的中国沿海海洋生态预警系统，支持浒苔/赤潮突发预警和海水低氧预警监测。",
 };
 
