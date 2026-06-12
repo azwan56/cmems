@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { dictionary, translateAlertMsg, translateAlertType, type Language, type DictionaryKey } from '@/lib/translations';
 
 interface AlertData {
   id: string;
@@ -46,45 +47,51 @@ export default function Map({
   alerts, 
   selectedAlert, 
   onSelectAlert,
-  onSelectPoint
+  onSelectPoint,
+  lang
 }: { 
   metrics: MetricData[], 
   alerts: AlertData[], 
   selectedAlert: AlertData | null, 
   onSelectAlert: (alert: AlertData | null) => void,
   selectedPoint: PointData | null,
-  onSelectPoint: (point: PointData | null) => void
+  onSelectPoint: (point: PointData | null) => void,
+  lang: Language
 }) {
   // Center of East China Sea
   const center: [number, number] = [28.0, 122.0];
+
+  const t = (key: DictionaryKey): string => {
+    return (dictionary[lang][key] as string) || key;
+  };
 
   return (
     <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
       <MapController selectedAlert={selectedAlert} />
       
       <LayersControl position="topright">
-        <LayersControl.BaseLayer checked name="🌐 极光高对比 (Voyager)">
+        <LayersControl.BaseLayer checked name={dictionary[lang].mapLayers.voyager}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
         </LayersControl.BaseLayer>
         
-        <LayersControl.BaseLayer name="🛰️ 卫星影像 (Satellite)">
+        <LayersControl.BaseLayer name={dictionary[lang].mapLayers.satellite}>
           <TileLayer
             attribution='&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           />
         </LayersControl.BaseLayer>
         
-        <LayersControl.BaseLayer name="🌑 极光深色 (Dark)">
+        <LayersControl.BaseLayer name={dictionary[lang].mapLayers.dark}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
         </LayersControl.BaseLayer>
         
-        <LayersControl.BaseLayer name="🗺️ 标准地图 (Standard)">
+        <LayersControl.BaseLayer name={dictionary[lang].mapLayers.standard}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -121,9 +128,9 @@ export default function Map({
               remove: () => onSelectPoint(null)
             }}>
               <div className="text-sm text-slate-900">
-                <strong>{isChl ? '叶绿素a浓度' : '底层溶解氧'}</strong><br/>
-                测量值: {m.value.toFixed(2)} {isChl ? 'mg/m³' : 'mmol/m³'}<br/>
-                纬度: {m.lat.toFixed(4)}, 经度: {m.lon.toFixed(4)}
+                <strong>{isChl ? t('chlorophyllConc') : t('bottomO2')}</strong><br/>
+                {t('value')}: {m.value.toFixed(2)} {isChl ? t('unitChl') : t('unitO2')}<br/>
+                {t('latitude')}: {m.lat.toFixed(4)}, {t('longitude')}: {m.lon.toFixed(4)}
               </div>
             </Popup>
           </CircleMarker>
@@ -165,11 +172,11 @@ export default function Map({
             }}>
               <div className="text-sm text-slate-900">
                 <strong className={isCritical ? "text-red-600 font-bold" : "text-yellow-600 font-bold"}>
-                  🚨 {a.type} [{a.level === 'CRITICAL' ? '严重' : '警告'}]
+                  🚨 {translateAlertType(a.type, lang)} [{a.level === 'CRITICAL' ? t('critical') : t('warning')}]
                 </strong><br/>
-                {a.message}<br/>
-                时间: {new Date(a.timestamp).toLocaleString()}<br/>
-                纬度: {a.lat.toFixed(4)}, 经度: {a.lon.toFixed(4)}
+                {translateAlertMsg(a.message, lang)}<br/>
+                {t('time')}: {new Date(a.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
+                {t('latitude')}: {a.lat.toFixed(4)}, {t('longitude')}: {a.lon.toFixed(4)}
               </div>
             </Popup>
           </CircleMarker>
@@ -215,16 +222,16 @@ export default function Map({
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                   selectedAlert.level === 'CRITICAL' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                 }`}>
-                  {selectedAlert.type} [{selectedAlert.level === 'CRITICAL' ? '严重' : '警告'}]
+                  {translateAlertType(selectedAlert.type, lang)} [{selectedAlert.level === 'CRITICAL' ? t('critical') : t('warning')}]
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono">
-                  {new Date(selectedAlert.timestamp).toLocaleTimeString()}
+                  {new Date(selectedAlert.timestamp).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US')}
                 </span>
               </div>
-              <p className="font-semibold text-slate-850 mt-1">{selectedAlert.message}</p>
+              <p className="font-semibold text-slate-850 mt-1">{translateAlertMsg(selectedAlert.message, lang)}</p>
               <div className="text-[10px] text-slate-400 mt-2 border-t pt-1 flex justify-between font-mono">
-                <span>纬度: {selectedAlert.lat.toFixed(4)}</span>
-                <span>经度: {selectedAlert.lon.toFixed(4)}</span>
+                <span>{t('latitude')}: {selectedAlert.lat.toFixed(4)}</span>
+                <span>{t('longitude')}: {selectedAlert.lon.toFixed(4)}</span>
               </div>
             </div>
           </Popup>
