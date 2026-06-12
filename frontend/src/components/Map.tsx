@@ -119,7 +119,7 @@ export default function Map({
                   lat: m.lat,
                   lon: m.lon,
                   variable: m.variable,
-                  name: m.variable === 'chl' ? '叶绿素a浓度' : '底层溶解氧'
+                  name: m.variable === 'chl' ? t('chlorophyllConc') : t('bottomO2')
                 });
               }
             }}
