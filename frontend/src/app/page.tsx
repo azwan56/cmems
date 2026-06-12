@@ -156,8 +156,10 @@ export default function Home() {
             {t('title')}
           </h1>
           <p className="text-xs text-gray-400 mt-2 tracking-wide uppercase">{t('subtitle')}</p>
-          <div className="text-[10px] text-gray-500 mt-3 font-mono border-t border-gray-800/40 pt-2 tracking-tight">
-            Idealized by Monte Wan, Powered by Gemini 3.5 AI
+          <div className="mt-3 border-t border-gray-800/40 pt-2">
+            <span className="text-xs font-bold bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent font-sans tracking-tight">
+              Idealized by Monte Wan, Powered by Gemini 3.5 AI
+            </span>
           </div>
         </div>
         
@@ -458,10 +460,13 @@ export default function Home() {
               </p>
             </div>
             
-            <div className="pt-3 border-t border-gray-800 flex justify-end">
+            <div className="pt-3 border-t border-gray-800 flex justify-between items-center gap-4">
+              <span className="text-xs font-bold bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent font-sans tracking-tight">
+                Idealized by Monte Wan, Powered by Gemini 3.5 AI
+              </span>
               <button 
                 onClick={() => setShowDisclaimer(false)}
-                className="px-5 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 active:scale-95 text-xs text-white font-semibold transition-all shadow-lg shadow-teal-500/25 cursor-pointer"
+                className="px-5 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 active:scale-95 text-xs text-white font-semibold transition-all shadow-lg shadow-teal-500/25 cursor-pointer shrink-0"
               >
                 {t('disclaimerButton')}
               </button>
@@ -558,13 +563,13 @@ export default function Home() {
             </div>
 
             {/* Bottom confirmation */}
-            <div className="pt-6 border-t border-gray-800 mt-6 flex justify-between items-center relative z-10">
-              <span className="text-[10px] text-gray-500 font-mono">
+            <div className="pt-6 border-t border-gray-800 mt-6 flex justify-between items-center relative z-10 gap-4">
+              <span className="text-xs font-bold bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent font-sans tracking-tight">
                 Idealized by Monte Wan, Powered by Gemini 3.5 AI
               </span>
               <button 
                 onClick={() => setShowAbout(false)}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-650 active:scale-95 text-xs text-white font-bold transition-all shadow-lg shadow-teal-500/15 cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-650 active:scale-95 text-xs text-white font-bold transition-all shadow-lg shadow-teal-500/15 cursor-pointer shrink-0"
               >
                 {t('startExploring')}
               </button>
