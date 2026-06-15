@@ -263,14 +263,14 @@ export default function Map({
                     <Popup>
                       <div className="text-sm text-slate-900 font-sans p-1 min-w-[180px]">
                         <strong>{dictionary[lang].legendTracks}</strong><br/>
-                        <span className="text-slate-500 text-xs">Origin / 起点:</span> {t_track.name}<br/>
-                        <span className="text-slate-500 text-xs">Duration / 历时:</span> {endPt ? endPt.hours : 0} {lang === 'zh' ? '小时' : 'hrs'}<br/>
-                        <span className="text-slate-500 text-xs">Status / 状态:</span> {isBeached ? (lang === 'zh' ? '⚠️ 已搁浅' : '⚠️ Beached') : (lang === 'zh' ? '🌊 漂流中' : '🌊 Drifting')}<br/>
+                        <span className="text-slate-500 text-xs">{t('origin')}:</span> {t_track.name}<br/>
+                        <span className="text-slate-500 text-xs">{t('duration')}:</span> {endPt ? endPt.hours : 0} {t('hoursUnit')}<br/>
+                        <span className="text-slate-500 text-xs">{t('status')}:</span> {isBeached ? `⚠️ ${t('beached')}` : `🌊 ${t('drifting')}`}<br/>
                         <div className="mt-2 pt-2 border-t text-[10px] text-slate-500">
                           <strong>{dictionary[lang].driftFactors}:</strong><br/>
-                          海流 (Current): {(t_track.drift_factors.current * 100).toFixed(0)}%<br/>
-                          波浪 (Stokes): {(t_track.drift_factors.wave * 100).toFixed(0)}%<br/>
-                          风阻 (Windage): {(t_track.drift_factors.wind * 100).toFixed(0)}%
+                          {t('currentFactor')}: {(t_track.drift_factors.current * 100).toFixed(0)}%<br/>
+                          {t('waveFactor')}: {(t_track.drift_factors.wave * 100).toFixed(0)}%<br/>
+                          {t('windFactor')}: {(t_track.drift_factors.wind * 100).toFixed(0)}%
                         </div>
                       </div>
                     </Popup>
@@ -290,9 +290,9 @@ export default function Map({
                     >
                       <Popup>
                         <div className="text-sm text-slate-900">
-                          <strong>起点: {t_track.name}</strong><br/>
-                          时间: {new Date(t_track.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
-                          纬度: {startPt.lat.toFixed(4)}, 经度: {startPt.lon.toFixed(4)}
+                          <strong>{t('origin')}: {t_track.name}</strong><br/>
+                          {t('time')}: {new Date(t_track.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
+                          {t('latitude')}: {startPt.lat.toFixed(4)}, {t('longitude')}: {startPt.lon.toFixed(4)}
                         </div>
                       </Popup>
                     </CircleMarker>
@@ -312,9 +312,9 @@ export default function Map({
                     >
                       <Popup>
                         <div className="text-sm text-slate-900">
-                          <strong>{isBeached ? (lang === 'zh' ? '搁浅终点' : 'Beaching Point') : (lang === 'zh' ? '漂流预测终点' : 'Projected End Point')}</strong><br/>
-                          时间: {endPt.hours} {lang === 'zh' ? '小时后' : 'hours later'}<br/>
-                          纬度: {endPt.lat.toFixed(4)}, 经度: {endPt.lon.toFixed(4)}
+                          <strong>{isBeached ? t('beachingPoint') : t('projectedEndPoint')}</strong><br/>
+                          {t('time')}: {endPt.hours} {t('hoursLater')}<br/>
+                          {t('latitude')}: {endPt.lat.toFixed(4)}, {t('longitude')}: {endPt.lon.toFixed(4)}
                         </div>
                       </Popup>
                     </CircleMarker>
