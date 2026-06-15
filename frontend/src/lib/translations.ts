@@ -191,6 +191,24 @@ export const dictionary = {
 
 export type DictionaryKey = Exclude<keyof typeof dictionary['zh'], 'mapLayers'>;
 
+// Internal helper to translate Chinese track/location names to English
+function translateTrackNameInner(name: string): string {
+  // Pattern: "海域辐合区 (收敛度 X.X)"
+  const convRegex = /海域辐合区\s*\(收敛度\s*([\d.]+)\)/;
+  const convMatch = name.match(convRegex);
+  if (convMatch) {
+    return `Convergence Zone (Index ${convMatch[1]})`;
+  }
+
+  const locationMap: Record<string, string> = {
+    '珠江口外海区': 'Pearl River Estuary',
+    '长江口外海区': 'Yangtze River Estuary',
+    '舟山海域': 'Zhoushan Sea Area',
+  };
+
+  return locationMap[name] || name;
+}
+
 export function translateAlertMsg(msg: string, lang: Language): string {
   if (lang === 'zh') return msg;
 
@@ -219,7 +237,8 @@ export function translateAlertMsg(msg: string, lang: Language): string {
   const beachingRegex = /根据海流与斯托克斯漂流预测，源自【(.*)】的漂流垃圾预计在 (\d+) 小时后抵达沿岸敏感区，请相关环卫单位做好拦截清扫准备。/;
   const beachingMatch = msg.match(beachingRegex);
   if (beachingMatch) {
-    return `Based on currents and Stokes drift forecast, floating debris originating from [${beachingMatch[1]}] is expected to arrive at the coastal sensitive area in ${beachingMatch[2]} hours. Relevant sanitation departments should prepare for interception and cleanup.`;
+    const translatedName = translateTrackNameInner(beachingMatch[1]);
+    return `Based on currents and Stokes drift forecast, floating debris originating from [${translatedName}] is expected to arrive at the coastal sensitive area in ${beachingMatch[2]} hours. Relevant sanitation departments should prepare for interception and cleanup.`;
   }
 
   const mockBeachingRegex = /检测到海面漂流垃圾预计在 (\d+) 小时后抵达沿岸敏感区（宁海沿海沙滩），请相关环卫单位做好拦截清扫准备。/;
@@ -243,3 +262,9 @@ export function translateAlertType(type: string, lang: Language): string {
   return type;
 
 }
+
+export function translateTrackName(name: string, lang: Language): string {
+  if (lang === 'zh') return name;
+  return translateTrackNameInner(name);
+}
+

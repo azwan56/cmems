@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl, useMap, Polyline, FeatureGroup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { dictionary, translateAlertMsg, translateAlertType, type Language, type DictionaryKey } from '@/lib/translations';
+import { dictionary, translateAlertMsg, translateAlertType, translateTrackName, type Language, type DictionaryKey } from '@/lib/translations';
 
 interface AlertData {
   id: string;
@@ -263,7 +263,7 @@ export default function Map({
                     <Popup>
                       <div className="text-sm text-slate-900 font-sans p-1 min-w-[180px]">
                         <strong>{dictionary[lang].legendTracks}</strong><br/>
-                        <span className="text-slate-500 text-xs">{t('origin')}:</span> {t_track.name}<br/>
+                        <span className="text-slate-500 text-xs">{t('origin')}:</span> {translateTrackName(t_track.name, lang)}<br/>
                         <span className="text-slate-500 text-xs">{t('duration')}:</span> {endPt ? endPt.hours : 0} {t('hoursUnit')}<br/>
                         <span className="text-slate-500 text-xs">{t('status')}:</span> {isBeached ? `⚠️ ${t('beached')}` : `🌊 ${t('drifting')}`}<br/>
                         <div className="mt-2 pt-2 border-t text-[10px] text-slate-500">
@@ -290,7 +290,7 @@ export default function Map({
                     >
                       <Popup>
                         <div className="text-sm text-slate-900">
-                          <strong>{t('origin')}: {t_track.name}</strong><br/>
+                          <strong>{t('origin')}: {translateTrackName(t_track.name, lang)}</strong><br/>
                           {t('time')}: {new Date(t_track.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
                           {t('latitude')}: {startPt.lat.toFixed(4)}, {t('longitude')}: {startPt.lon.toFixed(4)}
                         </div>
