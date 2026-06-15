@@ -189,23 +189,7 @@ export default function Map({
                         });
                       }
                     }}
-                  >
-                    <Popup eventHandlers={{
-                      remove: () => {
-                        onSelectAlert(null);
-                        onSelectPoint(null);
-                      }
-                    }}>
-                      <div className="text-sm text-slate-900">
-                        <strong className={isCritical ? "text-red-600 font-bold" : "text-yellow-600 font-bold"}>
-                          🚨 {translateAlertType(a.type, lang)} [{a.level === 'CRITICAL' ? t('critical') : t('warning')}]
-                        </strong><br/>
-                        {translateAlertMsg(a.message, lang)}<br/>
-                        {t('time')}: {new Date(a.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
-                        {t('latitude')}: {a.lat.toFixed(4)}, {t('longitude')}: {a.lon.toFixed(4)}
-                      </div>
-                    </Popup>
-                  </CircleMarker>
+                  />
                 );
               })}
           </FeatureGroup>
@@ -361,20 +345,7 @@ export default function Map({
                         onSelectPoint(null);
                       }
                     }}
-                  >
-                    <Popup eventHandlers={{
-                      remove: () => onSelectAlert(null)
-                    }}>
-                      <div className="text-sm text-slate-900">
-                        <strong className="text-red-600 font-bold">
-                          🚨 {translateAlertType(a.type, lang)} [{t('warning')}]
-                        </strong><br/>
-                        {translateAlertMsg(a.message, lang)}<br/>
-                        {t('time')}: {new Date(a.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
-                        {t('latitude')}: {a.lat.toFixed(4)}, {t('longitude')}: {a.lon.toFixed(4)}
-                      </div>
-                    </Popup>
-                  </CircleMarker>
+                  />
                 );
               })}
           </FeatureGroup>
