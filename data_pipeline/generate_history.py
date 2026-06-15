@@ -52,10 +52,19 @@ def delete_collection(collection_ref):
 print("Clearing database first...")
 delete_collection(db.collection("alerts"))
 delete_collection(db.collection("metrics"))
+delete_collection(db.collection("litter_tracks"))
+
+# Coordinates for 3 mock marine litter hotspot areas
+litter_coords = [
+    (21.9, 113.85, "珠江口外海区"),
+    (31.25, 122.2, "长江口外海区"),
+    (29.85, 122.45, "舟山海域")
+]
 
 # Write batch list
 metrics_batch = []
 alerts_list = []
+tracks_list = []
 
 # 1. Generate Chlorophyll (chl) history
 for lat, lon in chl_coords:
@@ -130,6 +139,83 @@ for lat, lon in o2_coords:
                 "level": "WARNING"
             })
 
+# 3. Generate Marine Litter Density history & Drift Tracks
+# We generate litter_density history for the 3 hotspots
+for lat, lon, name in litter_coords:
+    base_density = random.uniform(4.0, 6.0)
+    for d in range(7):
+        timestamp = (now - timedelta(days=d)).isoformat()
+        val = base_density + random.uniform(-2.0, 3.0)
+        val = max(0.5, min(val, 10.0)) # Scale from 0 to 10
+        
+        metrics_batch.append({
+            "timestamp": timestamp,
+            "lat": lat,
+            "lon": lon,
+            "variable": "litter_density",
+            "value": val
+        })
+
+    # For the latest run (day 0), generate a 72-hour drift trajectory
+    timestamp_latest = now.isoformat()
+    path = []
+    curr_lat, curr_lon = lat, lon
+    
+    # Define directional drift offsets for mock tracks
+    lat_offset, lon_offset = 0.0, 0.0
+    if "珠江" in name:
+        lat_offset, lon_offset = -0.015, -0.025
+    elif "长江" in name:
+        lat_offset, lon_offset = -0.005, 0.02
+    else: # 舟山
+        lat_offset, lon_offset = -0.02, -0.01
+        
+    beached = False
+    beached_step = -1
+    
+    for h in range(0, 73, 6):
+        if beached:
+            break
+        # Add random perturbation to drift path
+        curr_lat += lat_offset + random.uniform(-0.005, 0.005)
+        curr_lon += lon_offset + random.uniform(-0.005, 0.005)
+        
+        path.append({
+            "lat": float(f"{curr_lat:.4f}"),
+            "lon": float(f"{curr_lon:.4f}"),
+            "hours": h
+        })
+        
+        # Simulate beaching for Zhoushan track at hour 42
+        if "舟山" in name and h == 42:
+            beached = True
+            beached_step = h
+            
+    tracks_list.append({
+        "timestamp": timestamp_latest,
+        "lat": lat,
+        "lon": lon,
+        "path": path,
+        "drift_factors": {
+            "current": 0.55,
+            "wave": 0.35,
+            "wind": 0.10
+        },
+        "name": name
+    })
+    
+    # If beached, upload a Beaching warning alert
+    if beached:
+        alerts_list.append({
+            "timestamp": timestamp_latest,
+            "type": "垃圾搁浅",
+            "lat": curr_lat,
+            "lon": curr_lon,
+            "value": 1.0,
+            "message": f"检测到海面漂流垃圾预计在 {beached_step} 小时后抵达沿岸敏感区（宁海沿海沙滩），请相关环卫单位做好拦截清扫准备。",
+            "level": "WARNING"
+        })
+
 # Commit Metrics in batches of 500
 batch = db.batch()
 count = 0
@@ -160,4 +246,20 @@ if count > 0:
     batch.commit()
 print(f"Uploaded {len(alerts_list)} historical alerts.")
 
+# Commit Tracks
+batch = db.batch()
+count = 0
+for track in tracks_list:
+    doc_ref = db.collection("litter_tracks").document()
+    batch.set(doc_ref, track)
+    count += 1
+    if count == 500:
+        batch.commit()
+        batch = db.batch()
+        count = 0
+if count > 0:
+    batch.commit()
+print(f"Uploaded {len(tracks_list)} latest litter tracks.")
+
 print("Historical mock data generation completed successfully!")
+

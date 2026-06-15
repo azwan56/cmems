@@ -43,7 +43,9 @@ interface HistoryEntry {
 export default function Home() {
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [metrics, setMetrics] = useState<MetricData[]>([]);
+  const [tracks, setTracks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [selectedAlert, setSelectedAlert] = useState<AlertData | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<PointData | null>(null);
   const [historyData, setHistoryData] = useState<HistoryEntry[]>([]);
@@ -81,16 +83,19 @@ export default function Home() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [alertsRes, metricsRes] = await Promise.all([
+        const [alertsRes, metricsRes, tracksRes] = await Promise.all([
           fetch('/api/alerts'),
-          fetch('/api/metrics')
+          fetch('/api/metrics'),
+          fetch('/api/litter-tracks')
         ]);
         
         const alertsData = await alertsRes.json();
         const metricsData = await metricsRes.json();
+        const tracksData = await tracksRes.json();
         
         if (alertsData.alerts) setAlerts(alertsData.alerts);
         if (metricsData.metrics) setMetrics(metricsData.metrics);
+        if (tracksData.tracks) setTracks(tracksData.tracks);
       } catch (error) {
         console.error("Failed to fetch data", error);
       } finally {
@@ -103,6 +108,7 @@ export default function Home() {
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
+
 
   // Fetch history when selectedPoint changes
   useEffect(() => {
@@ -283,11 +289,12 @@ export default function Home() {
                     <Line 
                       type="monotone" 
                       dataKey="value" 
-                      stroke={selectedPoint.variable === 'chl' ? '#10b981' : '#3b82f6'} 
+                      stroke={selectedPoint.variable === 'chl' ? '#10b981' : (selectedPoint.variable === 'o2' ? '#3b82f6' : '#f59e0b')} 
                       strokeWidth={2}
                       dot={{ r: 3, strokeWidth: 1 }}
                       activeDot={{ r: 5 }}
                     />
+
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -310,7 +317,9 @@ export default function Home() {
           selectedPoint={selectedPoint}
           onSelectPoint={setSelectedPoint}
           lang={lang}
+          tracks={tracks}
         />
+
 
         {/* Floating Controls (Language & About) in Top-Right */}
         <div className="absolute top-4 right-4 z-[1000] flex items-center gap-3 bg-gray-900/80 backdrop-blur-md p-2 rounded-2xl border border-gray-800 shadow-2xl">
@@ -403,7 +412,20 @@ export default function Home() {
                 <span className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]"></span>
                 <span>{t('legendHypoxia')}</span>
               </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-600 shadow-[0_0_8px_rgba(217,119,6,0.4)]"></span>
+                <span>{t('legendLitter')}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-650 shadow-[0_0_8px_rgba(220,38,38,0.4)]"></span>
+                <span>{t('beachingWarning')}</span>
+              </div>
+              <div className="flex items-center gap-1.5 col-span-2">
+                <span className="w-6 h-0.5 border-t border-dashed border-amber-500 inline-block mr-1"></span>
+                <span>{t('legendTracks')}</span>
+              </div>
             </div>
+
             
             <p className="text-[10px] text-gray-500 pt-2 leading-normal border-t border-gray-800/60">
               {t('legendTip')}

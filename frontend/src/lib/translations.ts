@@ -19,8 +19,15 @@ export const dictionary = {
     legendO2: "低氧风险 (<200)",
     legendRedTide: "赤潮预警",
     legendHypoxia: "水体缺氧警报",
-    legendTip: "* 提示：点击地图点位或预警卡片以查看 7 日历史趋势。同一位置多次预警表示事件持续演进。",
+    legendLitter: "垃圾聚集区 (>3.0)",
+    legendTracks: "漂流预测轨迹",
+    litterDensity: "垃圾聚集指数",
+    unitLitter: "",
+    driftFactors: "动力来源分析",
+    beachingWarning: "垃圾搁浅预警",
+    legendTip: "* 提示：点击地图点位或预警卡片以查看 7 日历史趋势。同一位置多次预警表示事件持续演进及搁浅预测。",
     dataSource: "数据源: CMEMS 卫星监测",
+
     disclaimerLink: "免责与科学声明",
     disclaimerTitle: "数据免责与科学声明",
     disclaimerP1Title: "1. 非官方权威预警",
@@ -68,9 +75,13 @@ export const dictionary = {
       voyager: "🌐 极光高对比 (Voyager)",
       satellite: "🛰️ 卫星影像 (Satellite)",
       dark: "🌑 极光深色 (Dark)",
-      standard: "🗺️ 标准地图 (Standard)"
+      standard: "🗺️ 标准地图 (Standard)",
+      ecoMetrics: "🌿 生态监测指标",
+      litterHotspots: "🍊 海洋垃圾聚集区",
+      litterTracks: "🗺️ 垃圾漂流预测轨迹"
     }
   },
+
   en: {
     title: "CMEMS Eco Radar",
     subtitle: "China Coastal Marine Ecological Warning System - Demo",
@@ -89,8 +100,15 @@ export const dictionary = {
     legendO2: "Hypoxia Risk (<200)",
     legendRedTide: "Algae Bloom Warning",
     legendHypoxia: "Hypoxia Alarm",
-    legendTip: "* Note: Click map points or alert cards to view the 7-day trend. Multiple alerts at the same location indicate ongoing events.",
+    legendLitter: "Litter Hotspots (>3.0)",
+    legendTracks: "Drift Forecast Tracks",
+    litterDensity: "Litter Density Index",
+    unitLitter: "",
+    driftFactors: "Drift Forcing Breakdown",
+    beachingWarning: "Beaching Warning",
+    legendTip: "* Note: Click map points or alert cards to view the 7-day trend. Multiple alerts at the same location indicate ongoing events & beaching predictions.",
     dataSource: "Source: CMEMS Satellite Monitoring",
+
     disclaimerLink: "Disclaimer & Scientific Statement",
     disclaimerTitle: "Data Disclaimer & Scientific Statement",
     disclaimerP1Title: "1. Unofficial Warning",
@@ -138,10 +156,14 @@ export const dictionary = {
       voyager: "🌐 High Contrast (Voyager)",
       satellite: "🛰️ Satellite Imagery",
       dark: "🌑 Dark Map",
-      standard: "🗺️ Standard Map"
+      standard: "🗺️ Standard Map",
+      ecoMetrics: "🌿 Ecological Metrics",
+      litterHotspots: "🍊 Marine Litter Hotspots",
+      litterTracks: "🗺️ Litter Drift Forecasts"
     }
   }
 };
+
 
 export type DictionaryKey = Exclude<keyof typeof dictionary['zh'], 'mapLayers'>;
 
@@ -169,7 +191,21 @@ export function translateAlertMsg(msg: string, lang: Language): string {
     return `Low dissolved oxygen detected in bottom water (${o2WarningMatch[1]} mmol/m³), may lead to risk of hypoxia suffocation in benthic organisms.`;
   }
 
+  // Beaching warning
+  const beachingRegex = /根据海流与斯托克斯漂流预测，源自【(.*)】的漂流垃圾预计在 (\d+) 小时后抵达沿岸敏感区，请相关环卫单位做好拦截清扫准备。/;
+  const beachingMatch = msg.match(beachingRegex);
+  if (beachingMatch) {
+    return `Based on currents and Stokes drift forecast, floating debris originating from [${beachingMatch[1]}] is expected to arrive at the coastal sensitive area in ${beachingMatch[2]} hours. Relevant sanitation departments should prepare for interception and cleanup.`;
+  }
+
+  const mockBeachingRegex = /检测到海面漂流垃圾预计在 (\d+) 小时后抵达沿岸敏感区（宁海沿海沙滩），请相关环卫单位做好拦截清扫准备。/;
+  const mockBeachingMatch = msg.match(mockBeachingRegex);
+  if (mockBeachingMatch) {
+    return `Detected floating debris is expected to arrive at the coastal sensitive area (Ninghai Beach) in ${mockBeachingMatch[1]} hours. Relevant sanitation departments should prepare for interception and cleanup.`;
+  }
+
   return msg;
+
 }
 
 export function translateAlertType(type: string, lang: Language): string {
@@ -178,5 +214,8 @@ export function translateAlertType(type: string, lang: Language): string {
   if (type === '水体缺氧') return 'Hypoxia Alert';
   if (type === '叶绿素a浓度') return 'Chlorophyll-a';
   if (type === '底层溶解氧') return 'Bottom Dissolved Oxygen';
+  if (type === '垃圾搁浅') return 'Beaching Warning';
+  if (type === 'litter_density') return 'Litter Density';
   return type;
+
 }

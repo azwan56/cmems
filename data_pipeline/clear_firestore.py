@@ -33,4 +33,7 @@ print("Clearing alerts...")
 delete_collection(db.collection("alerts"))
 print("Clearing metrics...")
 delete_collection(db.collection("metrics"))
+print("Clearing litter tracks...")
+delete_collection(db.collection("litter_tracks"))
 print("Clear complete.")
+

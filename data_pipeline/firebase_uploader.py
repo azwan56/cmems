@@ -49,3 +49,23 @@ def upload_metrics(metrics_list):
     if count > 0:
         batch.commit()
     print(f"Uploaded {len(metrics_list)} metrics successfully.")
+
+def upload_litter_tracks(tracks_list):
+    """
+    Upload a list of litter tracks.
+    Each track: timestamp, lat, lon, path (array of maps), drift_factors (map)
+    """
+    batch = db.batch()
+    count = 0
+    for track in tracks_list:
+        doc_ref = db.collection("litter_tracks").document()
+        batch.set(doc_ref, track)
+        count += 1
+        if count == 500:
+            batch.commit()
+            batch = db.batch()
+            count = 0
+    if count > 0:
+        batch.commit()
+    print(f"Uploaded {len(tracks_list)} litter tracks successfully.")
+

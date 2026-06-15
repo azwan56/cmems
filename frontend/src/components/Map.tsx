@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl, useMap } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl, useMap, Polyline, FeatureGroup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { dictionary, translateAlertMsg, translateAlertType, type Language, type DictionaryKey } from '@/lib/translations';
 
@@ -28,6 +28,24 @@ interface PointData {
   name: string;
 }
 
+interface TrackData {
+  id: string;
+  lat: number;
+  lon: number;
+  name: string;
+  drift_factors: {
+    current: number;
+    wave: number;
+    wind: number;
+  };
+  path: Array<{
+    lat: number;
+    lon: number;
+    hours: number;
+  }>;
+  timestamp: string;
+}
+
 // Map controller to handle pan/fly actions when an alert is selected
 function MapController({ selectedAlert }: { selectedAlert: AlertData | null }) {
   const map = useMap();
@@ -48,7 +66,8 @@ export default function Map({
   selectedAlert, 
   onSelectAlert,
   onSelectPoint,
-  lang
+  lang,
+  tracks = []
 }: { 
   metrics: MetricData[], 
   alerts: AlertData[], 
@@ -56,7 +75,8 @@ export default function Map({
   onSelectAlert: (alert: AlertData | null) => void,
   selectedPoint: PointData | null,
   onSelectPoint: (point: PointData | null) => void,
-  lang: Language
+  lang: Language,
+  tracks?: TrackData[]
 }) {
   // Center of East China Sea
   const center: [number, number] = [28.0, 122.0];
@@ -97,92 +117,270 @@ export default function Map({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         </LayersControl.BaseLayer>
+
+        {/* 1. Eco Metrics Overlay */}
+        <LayersControl.Overlay checked name={dictionary[lang].mapLayers.ecoMetrics}>
+          <FeatureGroup>
+            {/* Render Chlorophyll / Oxygen Metrics */}
+            {metrics
+              .filter((m) => m.variable === 'chl' || m.variable === 'o2')
+              .map((m) => {
+                const isChl = m.variable === 'chl';
+                return (
+                  <CircleMarker
+                    key={m.id}
+                    center={[m.lat, m.lon]}
+                    radius={isChl ? Math.min(m.value * 2, 20) : 10}
+                    pathOptions={{ 
+                      fillColor: isChl ? '#10b981' : '#3b82f6', 
+                      color: isChl ? '#059669' : '#2563eb',
+                      fillOpacity: 0.5,
+                      weight: 1
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onSelectPoint({
+                          lat: m.lat,
+                          lon: m.lon,
+                          variable: m.variable,
+                          name: m.variable === 'chl' ? t('chlorophyllConc') : t('bottomO2')
+                        });
+                      }
+                    }}
+                  >
+                    <Popup eventHandlers={{
+                      remove: () => onSelectPoint(null)
+                    }}>
+                      <div className="text-sm text-slate-900">
+                        <strong>{isChl ? t('chlorophyllConc') : t('bottomO2')}</strong><br/>
+                        {t('value')}: {m.value.toFixed(2)} {isChl ? t('unitChl') : t('unitO2')}<br/>
+                        {t('latitude')}: {m.lat.toFixed(4)}, {t('longitude')}: {m.lon.toFixed(4)}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
+
+            {/* Render Chlorophyll / Oxygen Alerts */}
+            {alerts
+              .filter((a) => a.type !== '垃圾搁浅')
+              .map((a) => {
+                const isCritical = a.level === 'CRITICAL';
+                const isSelected = selectedAlert && selectedAlert.id === a.id;
+                return (
+                  <CircleMarker
+                    key={a.id}
+                    center={[a.lat, a.lon]}
+                    radius={isSelected ? 18 : 12}
+                    pathOptions={{ 
+                      fillColor: isCritical ? '#ef4444' : '#f59e0b', 
+                      color: isSelected ? '#14b8a6' : (isCritical ? '#b91c1c' : '#d97706'),
+                      fillOpacity: isSelected ? 0.9 : 0.7,
+                      weight: isSelected ? 3 : 1.5,
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onSelectAlert(a);
+                        onSelectPoint({
+                          lat: a.lat,
+                          lon: a.lon,
+                          variable: a.type === '赤潮预警' ? 'chl' : 'o2',
+                          name: a.type
+                        });
+                      }
+                    }}
+                  >
+                    <Popup eventHandlers={{
+                      remove: () => {
+                        onSelectAlert(null);
+                        onSelectPoint(null);
+                      }
+                    }}>
+                      <div className="text-sm text-slate-900">
+                        <strong className={isCritical ? "text-red-600 font-bold" : "text-yellow-600 font-bold"}>
+                          🚨 {translateAlertType(a.type, lang)} [{a.level === 'CRITICAL' ? t('critical') : t('warning')}]
+                        </strong><br/>
+                        {translateAlertMsg(a.message, lang)}<br/>
+                        {t('time')}: {new Date(a.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
+                        {t('latitude')}: {a.lat.toFixed(4)}, {t('longitude')}: {a.lon.toFixed(4)}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
+          </FeatureGroup>
+        </LayersControl.Overlay>
+
+        {/* 2. Litter Hotspots Overlay */}
+        <LayersControl.Overlay checked name={dictionary[lang].mapLayers.litterHotspots}>
+          <FeatureGroup>
+            {metrics
+              .filter((m) => m.variable === 'litter_density')
+              .map((m) => {
+                return (
+                  <CircleMarker
+                    key={m.id}
+                    center={[m.lat, m.lon]}
+                    radius={12}
+                    pathOptions={{ 
+                      fillColor: '#d97706', 
+                      color: '#b45309',
+                      fillOpacity: 0.65,
+                      weight: 1.5
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onSelectPoint({
+                          lat: m.lat,
+                          lon: m.lon,
+                          variable: m.variable,
+                          name: t('litterDensity')
+                        });
+                      }
+                    }}
+                  >
+                    <Popup eventHandlers={{
+                      remove: () => onSelectPoint(null)
+                    }}>
+                      <div className="text-sm text-slate-900">
+                        <strong>{t('litterDensity')}</strong><br/>
+                        {t('value')}: {m.value.toFixed(2)}<br/>
+                        {t('latitude')}: {m.lat.toFixed(4)}, {t('longitude')}: {m.lon.toFixed(4)}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
+          </FeatureGroup>
+        </LayersControl.Overlay>
+
+        {/* 3. Litter Drift Tracks Overlay */}
+        <LayersControl.Overlay checked name={dictionary[lang].mapLayers.litterTracks}>
+          <FeatureGroup>
+            {/* Render Drift Polylines */}
+            {tracks.map((t_track) => {
+              const startPt = t_track.path[0];
+              const endPt = t_track.path[t_track.path.length - 1];
+              // Check if beached
+              const isBeached = endPt && endPt.hours < 72;
+              
+              return (
+                <React.Fragment key={t_track.id}>
+                  {/* Drift Polyline */}
+                  <Polyline
+                    positions={t_track.path.map((p) => [p.lat, p.lon])}
+                    pathOptions={{
+                      color: '#f59e0b',
+                      dashArray: '5, 8',
+                      weight: 3,
+                      opacity: 0.85
+                    }}
+                  >
+                    <Popup>
+                      <div className="text-sm text-slate-900 font-sans p-1 min-w-[180px]">
+                        <strong>{dictionary[lang].legendTracks}</strong><br/>
+                        <span className="text-slate-500 text-xs">Origin / 起点:</span> {t_track.name}<br/>
+                        <span className="text-slate-500 text-xs">Duration / 历时:</span> {endPt ? endPt.hours : 0} {lang === 'zh' ? '小时' : 'hrs'}<br/>
+                        <span className="text-slate-500 text-xs">Status / 状态:</span> {isBeached ? (lang === 'zh' ? '⚠️ 已搁浅' : '⚠️ Beached') : (lang === 'zh' ? '🌊 漂流中' : '🌊 Drifting')}<br/>
+                        <div className="mt-2 pt-2 border-t text-[10px] text-slate-500">
+                          <strong>{dictionary[lang].driftFactors}:</strong><br/>
+                          海流 (Current): {(t_track.drift_factors.current * 100).toFixed(0)}%<br/>
+                          波浪 (Stokes): {(t_track.drift_factors.wave * 100).toFixed(0)}%<br/>
+                          风阻 (Windage): {(t_track.drift_factors.wind * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    </Popup>
+                  </Polyline>
+
+                  {/* Source Marker */}
+                  {startPt && (
+                    <CircleMarker
+                      center={[startPt.lat, startPt.lon]}
+                      radius={6}
+                      pathOptions={{
+                        fillColor: '#b45309',
+                        color: '#78350f',
+                        fillOpacity: 0.8,
+                        weight: 1
+                      }}
+                    >
+                      <Popup>
+                        <div className="text-sm text-slate-900">
+                          <strong>起点: {t_track.name}</strong><br/>
+                          时间: {new Date(t_track.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
+                          纬度: {startPt.lat.toFixed(4)}, 经度: {startPt.lon.toFixed(4)}
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  )}
+
+                  {/* Destination / Beaching Marker */}
+                  {endPt && (
+                    <CircleMarker
+                      center={[endPt.lat, endPt.lon]}
+                      radius={isBeached ? 8 : 5}
+                      pathOptions={{
+                        fillColor: isBeached ? '#ef4444' : '#f59e0b',
+                        color: isBeached ? '#b91c1c' : '#d97706',
+                        fillOpacity: 0.9,
+                        weight: 1
+                      }}
+                    >
+                      <Popup>
+                        <div className="text-sm text-slate-900">
+                          <strong>{isBeached ? (lang === 'zh' ? '搁浅终点' : 'Beaching Point') : (lang === 'zh' ? '漂流预测终点' : 'Projected End Point')}</strong><br/>
+                          时间: {endPt.hours} {lang === 'zh' ? '小时后' : 'hours later'}<br/>
+                          纬度: {endPt.lat.toFixed(4)}, 经度: {endPt.lon.toFixed(4)}
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  )}
+                </React.Fragment>
+              );
+            })}
+
+            {/* Render Beaching Alerts on Map */}
+            {alerts
+              .filter((a) => a.type === '垃圾搁浅')
+              .map((a) => {
+                const isSelected = selectedAlert && selectedAlert.id === a.id;
+                return (
+                  <CircleMarker
+                    key={a.id}
+                    center={[a.lat, a.lon]}
+                    radius={isSelected ? 18 : 12}
+                    pathOptions={{ 
+                      fillColor: '#ef4444', 
+                      color: isSelected ? '#14b8a6' : '#b91c1c',
+                      fillOpacity: isSelected ? 0.95 : 0.75,
+                      weight: isSelected ? 3 : 1.5,
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onSelectAlert(a);
+                        onSelectPoint(null);
+                      }
+                    }}
+                  >
+                    <Popup eventHandlers={{
+                      remove: () => onSelectAlert(null)
+                    }}>
+                      <div className="text-sm text-slate-900">
+                        <strong className="text-red-600 font-bold">
+                          🚨 {translateAlertType(a.type, lang)} [{t('warning')}]
+                        </strong><br/>
+                        {translateAlertMsg(a.message, lang)}<br/>
+                        {t('time')}: {new Date(a.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
+                        {t('latitude')}: {a.lat.toFixed(4)}, {t('longitude')}: {a.lon.toFixed(4)}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
+          </FeatureGroup>
+        </LayersControl.Overlay>
       </LayersControl>
       
-      {/* Render Metrics */}
-      {metrics.map((m) => {
-        const isChl = m.variable === 'chl';
-        return (
-          <CircleMarker
-            key={m.id}
-            center={[m.lat, m.lon]}
-            radius={isChl ? Math.min(m.value * 2, 20) : 10}
-            pathOptions={{ 
-              fillColor: isChl ? '#10b981' : '#3b82f6', 
-              color: isChl ? '#059669' : '#2563eb',
-              fillOpacity: 0.5,
-              weight: 1
-            }}
-            eventHandlers={{
-              click: () => {
-                onSelectPoint({
-                  lat: m.lat,
-                  lon: m.lon,
-                  variable: m.variable,
-                  name: m.variable === 'chl' ? t('chlorophyllConc') : t('bottomO2')
-                });
-              }
-            }}
-          >
-            <Popup eventHandlers={{
-              remove: () => onSelectPoint(null)
-            }}>
-              <div className="text-sm text-slate-900">
-                <strong>{isChl ? t('chlorophyllConc') : t('bottomO2')}</strong><br/>
-                {t('value')}: {m.value.toFixed(2)} {isChl ? t('unitChl') : t('unitO2')}<br/>
-                {t('latitude')}: {m.lat.toFixed(4)}, {t('longitude')}: {m.lon.toFixed(4)}
-              </div>
-            </Popup>
-          </CircleMarker>
-        );
-      })}
-
-      {/* Render Alerts */}
-      {alerts.map((a) => {
-        const isCritical = a.level === 'CRITICAL';
-        const isSelected = selectedAlert && selectedAlert.id === a.id;
-        return (
-          <CircleMarker
-            key={a.id}
-            center={[a.lat, a.lon]}
-            radius={isSelected ? 18 : 12}
-            pathOptions={{ 
-              fillColor: isCritical ? '#ef4444' : '#f59e0b', 
-              color: isSelected ? '#14b8a6' : (isCritical ? '#b91c1c' : '#d97706'),
-              fillOpacity: isSelected ? 0.9 : 0.7,
-              weight: isSelected ? 3 : 1.5,
-            }}
-            eventHandlers={{
-              click: () => {
-                onSelectAlert(a);
-                onSelectPoint({
-                  lat: a.lat,
-                  lon: a.lon,
-                  variable: a.type === '赤潮预警' ? 'chl' : 'o2',
-                  name: a.type
-                });
-              }
-            }}
-          >
-            <Popup eventHandlers={{
-              remove: () => {
-                onSelectAlert(null);
-                onSelectPoint(null);
-              }
-            }}>
-              <div className="text-sm text-slate-900">
-                <strong className={isCritical ? "text-red-600 font-bold" : "text-yellow-600 font-bold"}>
-                  🚨 {translateAlertType(a.type, lang)} [{a.level === 'CRITICAL' ? t('critical') : t('warning')}]
-                </strong><br/>
-                {translateAlertMsg(a.message, lang)}<br/>
-                {t('time')}: {new Date(a.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}<br/>
-                {t('latitude')}: {a.lat.toFixed(4)}, {t('longitude')}: {a.lon.toFixed(4)}
-              </div>
-            </Popup>
-          </CircleMarker>
-        );
-      })}
-
       {/* Special Highlight & Auto Popup for Selected Alert */}
       {selectedAlert && (
         <>
@@ -240,3 +438,4 @@ export default function Map({
     </MapContainer>
   );
 }
+

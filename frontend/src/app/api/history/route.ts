@@ -3,7 +3,7 @@ import { db } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_VARIABLES = ['chl', 'o2'] as const;
+const VALID_VARIABLES = ['chl', 'o2', 'litter_density'] as const;
 const COORD_TOLERANCE = 0.01; // ~1.1km tolerance for coordinate matching
 const MAX_HISTORY_DOCS = 500; // Cap to prevent unbounded reads
 
