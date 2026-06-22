@@ -496,10 +496,10 @@ def analyze_enso():
         
         if latest_oni >= 0.5:
             level = "WARNING"
-            message = f"【气候预警】检测到最新海洋厄尔尼诺指数（ONI）为 {latest_oni:.2f}°C，已超过厄尔尼诺阈值（+0.5°C），表明赤道中东太平洋海表温度持续偏暖，可能对我国沿海气候 and 海洋生态产生系统性影响。"
+            message = f"【气候预警】检测到最新海洋厄尔尼诺指数（ONI）为 {latest_oni:.2f}°C，已超过厄尔尼诺阈值（+0.5°C），表明赤道中东太平洋海表温度持续偏暖，可能对我国沿海气候和海洋生态产生系统性影响。"
         elif latest_oni <= -0.5:
             level = "WARNING"
-            message = f"【气候预警】检测到最新海洋拉尼娜指数（ONI）为 {latest_oni:.2f}°C，已低于拉尼娜阈值（-0.5°C），表明赤道中东太平洋海表温度持续偏冷，可能引发沿海异常低温 and 强对流天气风险。"
+            message = f"【气候预警】检测到最新海洋拉尼娜指数（ONI）为 {latest_oni:.2f}°C，已低于拉尼娜阈值（-0.5°C），表明赤道中东太平洋海表温度持续偏冷，可能引发沿海异常低温和强对流天气风险。"
             
         if level == "WARNING":
             upload_alert({
