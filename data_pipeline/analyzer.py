@@ -350,83 +350,169 @@ def analyze_and_upload():
     print("Analysis and upload complete.")
 
 def analyze_enso():
-    print("Analyzing ENSO (El Niño / La Niña)...")
-    enso_dir = "data/enso"
-    nc_files = []
-    if os.path.exists(enso_dir):
-        for root, dirs, files in os.walk(enso_dir):
-            for f in files:
-                if f.endswith(".nc"):
-                    nc_files.append(os.path.join(root, f))
-                    
-    if not nc_files:
-        print("ENSO data file not found. Run fetch_cmems.py first.")
+    print("Analyzing ENSO (El Niño / La Niña) using custom calculation pipeline...")
+    import json
+    import pandas as pd
+    
+    climatology_json = "data/enso_climatology.json"
+    calibration_json = "data/enso_calibration.json"
+    
+    if not os.path.exists(climatology_json) or not os.path.exists(calibration_json):
+        print("Climatology or calibration file not found. Run calculate_climatology.py and verify_and_calibrate.py first.")
         return
         
-    target_file = nc_files[0]
-    print(f"Loading ENSO dataset from {target_file}...")
-    try:
-        ds = xr.open_dataset(target_file, engine="h5netcdf")
-        times = ds['time'].values
-        sst_mean = ds['sst_mean'].values
-        ds.close()
+    with open(climatology_json, "r") as f:
+        climatology = {int(k): v for k, v in json.load(f).items()}
         
-        # Calculate 3-month running mean using numpy
-        oni = []
-        for i in range(len(sst_mean)):
-            window = sst_mean[max(0, i-2) : i+1]
-            oni.append(float(np.mean(window)))
+    with open(calibration_json, "r") as f:
+        calibration = json.load(f)
+        mean_bias = calibration.get("mean_bias", 0.0)
+        
+    print(f"Loaded climatology and calibration bias ({mean_bias:.4f} °C).")
+    
+    # Paths to datasets
+    nc_historical = "data/nino34_climatology_raw.nc"
+    nc_recent = "data/nino34_recent_raw.nc"
+    nrt_monthly = "data/enso/nino34_nrt_monthly.nc"
+    nrt_daily = "data/enso/nino34_nrt_daily.nc"
+    
+    if not os.path.exists(nc_historical):
+        print("Historical raw NetCDF not found. Run calculate_climatology.py first.")
+        return
+        
+    # Process helper
+    def get_spatial_mean_series(path):
+        if not os.path.exists(path):
+            return None
+        try:
+            ds = xr.open_dataset(path, engine="h5netcdf")
+            thetao = ds['thetao'].isel(depth=0)
+            weights = np.cos(np.radians(ds['latitude']))
+            weights.name = "weights"
+            thetao_weighted = thetao.weighted(weights)
+            sst_mean = thetao_weighted.mean(dim=["latitude", "longitude"])
             
-        # Prepare list for upload
-        enso_records = []
-        for i in range(len(times)):
-            t_str = str(times[i])[:19] + "Z"
-            val = float(sst_mean[i])
-            if np.isnan(val):
-                continue
-            
-            enso_records.append({
-                "timestamp": t_str,
-                "sst_mean": val,
-                "oni": oni[i]
-            })
-            
-        if enso_records:
-            upload_enso_metrics(enso_records)
-            
-            # Check latest record for El Niño / La Niña status
-            latest = enso_records[-1]
-            latest_oni = latest["oni"]
-            latest_time = latest["timestamp"]
-            
-            print(f"Latest ONI Index ({latest_time}): {latest_oni:.2f}°C")
-            
-            # Determine state
-            level = "INFO"
-            message = ""
-            
-            if latest_oni >= 0.5:
-                level = "WARNING"
-                message = f"【气候预警】检测到最新海洋厄尔尼诺指数（ONI）为 {latest_oni:.2f}°C，已超过厄尔尼诺阈值（+0.5°C），表明赤道中东太平洋海表温度持续偏暖，可能对我国沿海气候和海洋生态产生系统性影响。"
-            elif latest_oni <= -0.5:
-                level = "WARNING"
-                message = f"【气候预警】检测到最新海洋拉尼娜指数（ONI）为 {latest_oni:.2f}°C，已低于拉尼娜阈值（-0.5°C），表明赤道中东太平洋海表温度持续偏冷，可能引发沿海异常低温和强对流天气风险。"
-                
-            if level == "WARNING":
-                upload_alert({
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "type": "气候变化预警",
-                    "lat": 0.0,
-                    "lon": -145.0,
-                    "value": latest_oni,
-                    "message": message,
-                    "level": level
+            # Extract time and value pairs
+            series = []
+            for t, val in zip(sst_mean.time.values, sst_mean.values):
+                dt = pd.to_datetime(t)
+                series.append({
+                    "year": int(dt.year),
+                    "month": int(dt.month),
+                    "day": int(dt.day),
+                    "sst": float(val)
                 })
-        else:
-            print("No valid ENSO records to upload.")
+            ds.close()
+            return series
+        except Exception as e:
+            print(f"Error reading {path}: {e}")
+            return None
+
+    # Load all series
+    series_hist = get_spatial_mean_series(nc_historical) or []
+    series_rec = get_spatial_mean_series(nc_recent) or []
+    series_nrt_m = get_spatial_mean_series(nrt_monthly) or []
+    
+    # Process NRT daily data (month-to-date)
+    series_nrt_d_monthly = []
+    if os.path.exists(nrt_daily):
+        try:
+            ds = xr.open_dataset(nrt_daily, engine="h5netcdf")
+            thetao = ds['thetao'].isel(depth=0)
+            weights = np.cos(np.radians(ds['latitude']))
+            weights.name = "weights"
+            thetao_weighted = thetao.weighted(weights)
+            sst_mean = thetao_weighted.mean(dim=["latitude", "longitude"])
             
-    except Exception as e:
-        print(f"Error analyzing ENSO data: {e}")
+            # Aggregate daily SST to a single monthly mean
+            vals = sst_mean.values
+            if len(vals) > 0:
+                dt_first = pd.to_datetime(sst_mean.time.values[0])
+                mean_sst = float(np.mean(vals))
+                series_nrt_d_monthly.append({
+                    "year": int(dt_first.year),
+                    "month": int(dt_first.month),
+                    "day": 15,  # Center-point representation
+                    "sst": mean_sst
+                })
+            ds.close()
+        except Exception as e:
+            print(f"Error processing daily NRT SST: {e}")
+
+    # Combine all series into a single dictionary keyed by (year, month) to overwrite/remove duplicates
+    combined = {}
+    
+    for item in series_hist + series_rec + series_nrt_m + series_nrt_d_monthly:
+        key = (item["year"], item["month"])
+        # Later sources (like NRT or daily) naturally overwrite older sources in the list addition order
+        combined[key] = item
+        
+    # Sort chronologically
+    sorted_keys = sorted(combined.keys())
+    
+    # Calculate anomalies and rolling ONI
+    anomalies = []
+    enso_records = []
+    
+    for key in sorted_keys:
+        item = combined[key]
+        year, month = key
+        sst = item["sst"]
+        
+        # Apply calibration offset and subtract climatology baseline
+        calibrated_sst = sst + mean_bias
+        base = climatology[month]
+        anom = calibrated_sst - base
+        anomalies.append(anom)
+        
+        # Calculate 3-month running mean (ONI)
+        if len(anomalies) >= 3:
+            oni = float(np.mean(anomalies[-3:]))
+        else:
+            oni = anom
+            
+        t_str = f"{year}-{month:02d}-15T00:00:00Z"
+        
+        enso_records.append({
+            "timestamp": t_str,
+            "sst_mean": anom,  # This is the anomaly value (SSTA)
+            "oni": oni
+        })
+
+    if enso_records:
+        # Upload all calculated records to Firestore
+        print(f"Calculated {len(enso_records)} monthly ENSO records. Uploading...")
+        upload_enso_metrics(enso_records)
+        
+        # Check latest record for climate warnings
+        latest = enso_records[-1]
+        latest_oni = latest["oni"]
+        latest_time = latest["timestamp"]
+        
+        print(f"Latest custom ONI Index ({latest_time[:7]}): {latest_oni:.2f}°C")
+        
+        level = "INFO"
+        message = ""
+        
+        if latest_oni >= 0.5:
+            level = "WARNING"
+            message = f"【气候预警】检测到最新海洋厄尔尼诺指数（ONI）为 {latest_oni:.2f}°C，已超过厄尔尼诺阈值（+0.5°C），表明赤道中东太平洋海表温度持续偏暖，可能对我国沿海气候 and 海洋生态产生系统性影响。"
+        elif latest_oni <= -0.5:
+            level = "WARNING"
+            message = f"【气候预警】检测到最新海洋拉尼娜指数（ONI）为 {latest_oni:.2f}°C，已低于拉尼娜阈值（-0.5°C），表明赤道中东太平洋海表温度持续偏冷，可能引发沿海异常低温 and 强对流天气风险。"
+            
+        if level == "WARNING":
+            upload_alert({
+                "timestamp": datetime.utcnow().isoformat(),
+                "type": "气候变化预警",
+                "lat": 0.0,
+                "lon": -145.0,
+                "value": latest_oni,
+                "message": message,
+                "level": level
+            })
+    else:
+        print("No valid ENSO records processed.")
 
 if __name__ == "__main__":
     analyze_and_upload()

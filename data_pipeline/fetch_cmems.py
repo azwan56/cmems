@@ -177,24 +177,76 @@ def fetch_cur_and_wav_data(output_dir="data"):
 
 def fetch_enso_data(output_dir="data/enso"):
     """
-    Fetches ENSO OMI data (Niño 3.4 SST anomaly)
+    Fetches Near Real-Time (NRT) monthly and daily SST data for Niño 3.4 region
     """
     os.makedirs(output_dir, exist_ok=True)
-    dataset_id = "global_omi_climate-variability_nino34_sst_anom"
-    print(f"Fetching ENSO OMI data for {dataset_id}...")
+    
+    # Bounding box for Niño 3.4
+    LON_MIN, LON_MAX = -170.0, -120.0
+    LAT_MIN, LAT_MAX = -5.0, 5.0
+    
+    now = datetime.utcnow()
+    
+    # 1. Fetch NRT Monthly Mean SST for the last 6 months
+    monthly_dataset_id = "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1M-m"
+    start_monthly = (now - timedelta(days=180)).replace(day=1).strftime("%Y-%m-%d 00:00:00")
+    end_monthly = now.strftime("%Y-%m-%d %H:%M:%S")
+    monthly_out = os.path.join(output_dir, "nino34_nrt_monthly.nc")
+    
+    print(f"Fetching monthly SST from {monthly_dataset_id}...")
+    monthly_ok = False
     try:
-        copernicusmarine.get(
-            dataset_id=dataset_id,
-            output_directory=output_dir,
+        copernicusmarine.subset(
+            dataset_id=monthly_dataset_id,
+            variables=["thetao"],
+            minimum_longitude=LON_MIN,
+            maximum_longitude=LON_MAX,
+            minimum_latitude=LAT_MIN,
+            maximum_latitude=LAT_MAX,
+            start_datetime=start_monthly,
+            end_datetime=end_monthly,
+            minimum_depth=0.0,
+            maximum_depth=1.0,
+            output_filename=monthly_out,
             username=USERNAME,
-            password=PASSWORD,
-            force_download=True
+            password=PASSWORD
         )
-        print("ENSO OMI data fetched successfully.")
-        return True
+        print("Monthly SST fetched successfully.")
+        monthly_ok = True
     except Exception as e:
-        print(f"Error fetching ENSO OMI data: {e}")
-        return False
+        print(f"Error fetching monthly SST: {e}")
+        
+    # 2. Fetch NRT Daily SST for the current active month (month-to-date)
+    daily_dataset_id = "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m"
+    start_daily = now.replace(day=1).strftime("%Y-%m-%d 00:00:00")
+    end_daily = now.strftime("%Y-%m-%d %H:%M:%S")
+    daily_out = os.path.join(output_dir, "nino34_nrt_daily.nc")
+    
+    print(f"Fetching daily SST (month-to-date) from {daily_dataset_id}...")
+    daily_ok = False
+    try:
+        copernicusmarine.subset(
+            dataset_id=daily_dataset_id,
+            variables=["thetao"],
+            minimum_longitude=LON_MIN,
+            maximum_longitude=LON_MAX,
+            minimum_latitude=LAT_MIN,
+            maximum_latitude=LAT_MAX,
+            start_datetime=start_daily,
+            end_datetime=end_daily,
+            minimum_depth=0.0,
+            maximum_depth=1.0,
+            output_filename=daily_out,
+            username=USERNAME,
+            password=PASSWORD
+        )
+        print("Daily SST fetched successfully.")
+        daily_ok = True
+    except Exception as e:
+        print(f"Error fetching daily SST: {e}")
+        
+    return monthly_ok or daily_ok
+
 
 if __name__ == "__main__":
     fetch_bgc_data()
