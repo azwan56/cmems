@@ -175,8 +175,30 @@ def fetch_cur_and_wav_data(output_dir="data"):
 
     return cur_out_file, wav_out_file
 
+def fetch_enso_data(output_dir="data/enso"):
+    """
+    Fetches ENSO OMI data (Niño 3.4 SST anomaly)
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    dataset_id = "global_omi_climate-variability_nino34_sst_anom"
+    print(f"Fetching ENSO OMI data for {dataset_id}...")
+    try:
+        copernicusmarine.get(
+            dataset_id=dataset_id,
+            output_directory=output_dir,
+            username=USERNAME,
+            password=PASSWORD,
+            force_download=True
+        )
+        print("ENSO OMI data fetched successfully.")
+        return True
+    except Exception as e:
+        print(f"Error fetching ENSO OMI data: {e}")
+        return False
+
 if __name__ == "__main__":
     fetch_bgc_data()
     fetch_phy_data()
     fetch_cur_and_wav_data()
+    fetch_enso_data()
 

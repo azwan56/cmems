@@ -69,3 +69,25 @@ def upload_litter_tracks(tracks_list):
         batch.commit()
     print(f"Uploaded {len(tracks_list)} litter tracks successfully.")
 
+def upload_enso_metrics(enso_list):
+    """
+    Upload ENSO metrics to Firestore.
+    Each record in enso_list is a dict: timestamp (ISO), sst_mean, oni
+    Document ID will be formatted as YYYY-MM to avoid duplicates.
+    """
+    batch = db.batch()
+    count = 0
+    for record in enso_list:
+        date_str = record["timestamp"][:7] 
+        doc_ref = db.collection("enso_metrics").document(date_str)
+        batch.set(doc_ref, record)
+        count += 1
+        if count == 500:
+            batch.commit()
+            batch = db.batch()
+            count = 0
+    if count > 0:
+        batch.commit()
+    print(f"Uploaded {len(enso_list)} ENSO metrics successfully.")
+
+

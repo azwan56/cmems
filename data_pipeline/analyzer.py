@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from datetime import datetime
-from firebase_uploader import upload_alert, upload_metrics, upload_litter_tracks
+from firebase_uploader import upload_alert, upload_metrics, upload_litter_tracks, upload_enso_metrics
 import math
 from global_land_mask import globe
 import random
@@ -344,8 +344,89 @@ def analyze_and_upload():
     if ds_wav is not None:
         ds_wav.close()
         
+    # Analyze ENSO (Method 1)
+    analyze_enso()
+        
     print("Analysis and upload complete.")
 
+def analyze_enso():
+    print("Analyzing ENSO (El Niño / La Niña)...")
+    enso_dir = "data/enso"
+    nc_files = []
+    if os.path.exists(enso_dir):
+        for root, dirs, files in os.walk(enso_dir):
+            for f in files:
+                if f.endswith(".nc"):
+                    nc_files.append(os.path.join(root, f))
+                    
+    if not nc_files:
+        print("ENSO data file not found. Run fetch_cmems.py first.")
+        return
+        
+    target_file = nc_files[0]
+    print(f"Loading ENSO dataset from {target_file}...")
+    try:
+        ds = xr.open_dataset(target_file, engine="h5netcdf")
+        times = ds['time'].values
+        sst_mean = ds['sst_mean'].values
+        ds.close()
+        
+        # Calculate 3-month running mean using numpy
+        oni = []
+        for i in range(len(sst_mean)):
+            window = sst_mean[max(0, i-2) : i+1]
+            oni.append(float(np.mean(window)))
+            
+        # Prepare list for upload
+        enso_records = []
+        for i in range(len(times)):
+            t_str = str(times[i])[:19] + "Z"
+            val = float(sst_mean[i])
+            if np.isnan(val):
+                continue
+            
+            enso_records.append({
+                "timestamp": t_str,
+                "sst_mean": val,
+                "oni": oni[i]
+            })
+            
+        if enso_records:
+            upload_enso_metrics(enso_records)
+            
+            # Check latest record for El Niño / La Niña status
+            latest = enso_records[-1]
+            latest_oni = latest["oni"]
+            latest_time = latest["timestamp"]
+            
+            print(f"Latest ONI Index ({latest_time}): {latest_oni:.2f}°C")
+            
+            # Determine state
+            level = "INFO"
+            message = ""
+            
+            if latest_oni >= 0.5:
+                level = "WARNING"
+                message = f"【气候预警】检测到最新海洋厄尔尼诺指数（ONI）为 {latest_oni:.2f}°C，已超过厄尔尼诺阈值（+0.5°C），表明赤道中东太平洋海表温度持续偏暖，可能对我国沿海气候和海洋生态产生系统性影响。"
+            elif latest_oni <= -0.5:
+                level = "WARNING"
+                message = f"【气候预警】检测到最新海洋拉尼娜指数（ONI）为 {latest_oni:.2f}°C，已低于拉尼娜阈值（-0.5°C），表明赤道中东太平洋海表温度持续偏冷，可能引发沿海异常低温和强对流天气风险。"
+                
+            if level == "WARNING":
+                upload_alert({
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "type": "气候变化预警",
+                    "lat": 0.0,
+                    "lon": -145.0,
+                    "value": latest_oni,
+                    "message": message,
+                    "level": level
+                })
+        else:
+            print("No valid ENSO records to upload.")
+            
+    except Exception as e:
+        print(f"Error analyzing ENSO data: {e}")
 
 if __name__ == "__main__":
     analyze_and_upload()

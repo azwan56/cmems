@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { dictionary, translateAlertMsg, translateAlertType, type Language, type DictionaryKey } from '@/lib/translations';
 
 const Map = dynamic(() => import('@/components/Map'), { 
@@ -53,6 +53,8 @@ export default function Home() {
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
   const [legendCollapsed, setLegendCollapsed] = useState(false);
+  const [ensoData, setEnsoData] = useState<any[]>([]);
+  const [ensoLoading, setEnsoLoading] = useState(true);
   const [lang, setLang] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
       const savedLang = localStorage.getItem('cmems-lang') as Language;
@@ -108,6 +110,24 @@ export default function Home() {
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
+  
+  // Fetch ENSO climate metrics
+  useEffect(() => {
+    async function fetchEnso() {
+      try {
+        const res = await fetch('/api/enso');
+        const data = await res.json();
+        if (data.metrics) {
+          setEnsoData(data.metrics);
+        }
+      } catch (error) {
+        console.error("Failed to fetch ENSO data", error);
+      } finally {
+        setEnsoLoading(false);
+      }
+    }
+    fetchEnso();
+  }, []);
 
 
   // Fetch history when selectedPoint changes
@@ -152,6 +172,8 @@ export default function Home() {
     return Object.entries(chartDataObj).map(([date, value]) => ({ date, value }));
   }, [historyData, lang]);
 
+  const latestEnso = ensoData.length > 0 ? ensoData[ensoData.length - 1] : null;
+  const currentOni = latestEnso ? latestEnso.oni : 0;
 
   return (
     <div className="flex h-screen bg-gray-950 text-slate-200 overflow-hidden font-sans">
@@ -170,6 +192,83 @@ export default function Home() {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+          
+          {/* ENSO Monitoring Card */}
+          <div className="p-4 bg-gray-950/40 border border-gray-800 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-gray-800/40 pb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">🌡️</span>
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider">{t('ensoTitle')}</h3>
+              </div>
+              {latestEnso && (
+                <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${
+                  currentOni >= 0.5 
+                    ? 'bg-red-950/50 border-red-500/30 text-red-400 shadow-[0_0_8px_rgba(239,68,68,0.2)]' 
+                    : currentOni <= -0.5 
+                      ? 'bg-blue-950/50 border-blue-500/30 text-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.2)]' 
+                      : 'bg-teal-950/50 border-teal-500/30 text-teal-400 shadow-[0_0_8px_rgba(20,184,166,0.1)]'
+                }`}>
+                  {currentOni >= 0.5 
+                    ? t('ensoElNino') 
+                    : currentOni <= -0.5 
+                      ? t('ensoLaNina') 
+                      : t('ensoNormal')}
+                </span>
+              )}
+            </div>
+            
+            {ensoLoading ? (
+              <div className="h-24 flex items-center justify-center text-xs text-gray-500 animate-pulse font-mono">
+                Loading climate data...
+              </div>
+            ) : ensoData.length === 0 ? (
+              <div className="h-24 flex items-center justify-center text-xs text-gray-500 font-mono">
+                No climate data available
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-[10px] text-gray-400 font-medium">{t('oniIndex')}</span>
+                  <span className={`text-xs font-black font-mono ${
+                    currentOni >= 0.5 ? 'text-red-400' : currentOni <= -0.5 ? 'text-blue-400' : 'text-teal-400'
+                  }`}>
+                    {currentOni > 0 ? '+' : ''}{currentOni.toFixed(2)} °C
+                  </span>
+                </div>
+                
+                {/* Mini Trend Chart */}
+                <div className="h-20 w-full bg-gray-950/20 rounded-lg p-1 border border-gray-800/40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={ensoData} margin={{ top: 2, right: 30, left: -30, bottom: 2 }}>
+                      <XAxis dataKey="timestamp" hide />
+                      <YAxis domain={[-2.0, 2.0]} hide />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#475569', borderRadius: '8px', padding: '6px' }}
+                        labelFormatter={(label) => {
+                          const date = new Date(label);
+                          return date.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'numeric' });
+                        }}
+                        itemStyle={{ fontSize: '10px', color: '#2dd4bf' }}
+                        formatter={(value: any) => [`${parseFloat(value).toFixed(2)} °C`, 'ONI']}
+                      />
+                      <ReferenceLine y={0.5} stroke="#ef4444" strokeDasharray="3 3" strokeWidth={0.8} label={{ value: '+0.5', fill: '#ef4444', fontSize: 7, position: 'right' }} />
+                      <ReferenceLine y={-0.5} stroke="#3b82f6" strokeDasharray="3 3" strokeWidth={0.8} label={{ value: '-0.5', fill: '#3b82f6', fontSize: 7, position: 'right' }} />
+                      <ReferenceLine y={0} stroke="#475569" strokeWidth={0.5} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="oni" 
+                        stroke={currentOni >= 0.5 ? '#f87171' : currentOni <= -0.5 ? '#60a5fa' : '#2dd4bf'} 
+                        strokeWidth={1.8} 
+                        dot={false} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[9px] text-gray-500 leading-relaxed font-sans">{t('ensoExplanation')}</p>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">{t('realTimeTracking')} ({alerts.length})</h2>
             <div className="flex h-2 w-2">

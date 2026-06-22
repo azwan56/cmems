@@ -27,6 +27,14 @@ export const dictionary = {
     beachingWarning: "垃圾搁浅预警",
     legendTip: "* 提示：点击地图点位或预警卡片以查看 7 日历史趋势。同一位置多次预警表示事件持续演进及搁浅预测。",
     dataSource: "数据源: CMEMS 卫星监测",
+    ensoTitle: "ENSO (厄尔尼诺/拉尼娜) 气候监测",
+    ensoNormal: "正常 (Normal)",
+    ensoElNino: "厄尔尼诺 (El Niño)",
+    ensoLaNina: "拉尼娜 (La Niña)",
+    oniIndex: "海洋厄尔尼诺指数 (ONI)",
+    sstAnomaly: "Niño 3.4 温度距平 (SSTA)",
+    ensoThresholdLine: "ONI 阈值线 (±0.5°C)",
+    ensoExplanation: "由于厄尔尼诺/拉尼娜事件通过大气环流间接影响我国近海（如诱发赤潮增多、海洋热浪或寒潮等），系统特引入赤道中东太平洋 Niño 3.4 海区进行实时气候背景背景监控。",
 
     disclaimerLink: "免责与科学声明",
     disclaimerTitle: "数据免责与科学声明",
@@ -120,6 +128,14 @@ export const dictionary = {
     beachingWarning: "Beaching Warning",
     legendTip: "* Note: Click map points or alert cards to view the 7-day trend. Multiple alerts at the same location indicate ongoing events & beaching predictions.",
     dataSource: "Source: CMEMS Satellite Monitoring",
+    ensoTitle: "ENSO (El Niño/La Niña) Climate Monitor",
+    ensoNormal: "Normal State",
+    ensoElNino: "El Niño Phase",
+    ensoLaNina: "La Niña Phase",
+    oniIndex: "Oceanic Niño Index (ONI)",
+    sstAnomaly: "Niño 3.4 SST Anomaly (SSTA)",
+    ensoThresholdLine: "ONI Threshold (±0.5°C)",
+    ensoExplanation: "Since ENSO events systematically impact regional coastal marine ecosystems (e.g. promoting algae blooms, marine heatwaves, or storms), the system tracks the equatorial central-eastern Pacific Niño 3.4 region as climate context.",
 
     disclaimerLink: "Disclaimer & Scientific Statement",
     disclaimerTitle: "Data Disclaimer & Scientific Statement",
@@ -212,6 +228,18 @@ function translateTrackNameInner(name: string): string {
 export function translateAlertMsg(msg: string, lang: Language): string {
   if (lang === 'zh') return msg;
 
+  if (msg.includes('【气候预警】')) {
+    if (msg.includes('厄尔尼诺')) {
+      const valMatch = msg.match(/为 ([\d.-]+)°C/);
+      const val = valMatch ? valMatch[1] : '0.5';
+      return `[Climate Warning] Oceanic Niño Index (ONI) is ${val}°C, exceeding El Niño threshold (+0.5°C), indicating potential system-wide impacts on coastal ecosystems.`;
+    } else if (msg.includes('拉尼娜')) {
+      const valMatch = msg.match(/为 ([\d.-]+)°C/);
+      const val = valMatch ? valMatch[1] : '-0.5';
+      return `[Climate Warning] Oceanic Niño Index (ONI) is ${val}°C, below La Niña threshold (-0.5°C), indicating potential cold surges and weather anomaly risks.`;
+    }
+  }
+
   // Chlorophyll warning
   const chlRegex = /检测到海域叶绿素a浓度偏高 \(([\d.]+)\s*mg\/m³\)，存在赤潮爆发风险。/;
   const chlMatch = msg.match(chlRegex);
@@ -253,6 +281,7 @@ export function translateAlertMsg(msg: string, lang: Language): string {
 
 export function translateAlertType(type: string, lang: Language): string {
   if (lang === 'zh') return type;
+  if (type === '气候变化预警') return 'Climate Alert';
   if (type === '赤潮预警') return 'Algae Bloom Warning';
   if (type === '水体缺氧') return 'Hypoxia Alert';
   if (type === '叶绿素a浓度') return 'Chlorophyll-a';
