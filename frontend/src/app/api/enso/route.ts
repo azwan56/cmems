@@ -5,6 +5,22 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // 1. Try fetching from aggregated dashboard first (exactly 1 document read)
+    const dashDoc = await db.collection('latest_run').doc('dashboard').get();
+    if (dashDoc.exists) {
+      const enso_metrics = dashDoc.data()?.enso_metrics;
+      if (Array.isArray(enso_metrics) && enso_metrics.length > 0) {
+        // Ensure chronological ascending order for Recharts plotting
+        const sortedMetrics = [...enso_metrics].sort((a: any, b: any) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        return NextResponse.json({ metrics: sortedMetrics }, {
+          headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=7200' }
+        });
+      }
+    }
+
+    // 2. Fallback to individual document queries for compatibility
     const snapshot = await db.collection('enso_metrics')
       .orderBy('timestamp', 'desc')
       .limit(60) // Retrieve last 5 years of monthly data

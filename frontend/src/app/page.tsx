@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { dictionary, translateAlertMsg, translateAlertType, type Language, type DictionaryKey } from '@/lib/translations';
+import { dictionary, translateAlertMsg, translateAlertType, translateNearbyCities, type Language, type DictionaryKey } from '@/lib/translations';
 
 const Map = dynamic(() => import('@/components/Map'), { 
   ssr: false,
@@ -18,6 +18,7 @@ interface AlertData {
   level: string;
   message: string;
   timestamp: string;
+  nearby_cities?: string;
 }
 
 interface MetricData {
@@ -328,6 +329,12 @@ export default function Home() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-200 leading-relaxed font-medium">{translateAlertMsg(alert.message, lang)}</p>
+                {alert.nearby_cities && (
+                  <div className="mt-2 text-[11px] text-teal-400 font-medium flex items-center gap-1">
+                    <span>📍</span>
+                    <span>{translateNearbyCities(alert.nearby_cities, lang)}</span>
+                  </div>
+                )}
                 <div className="mt-3 pt-3 border-t border-gray-800/50 flex justify-between text-[11px] text-gray-500 font-mono">
                   <span>Lat: {alert.lat.toFixed(4)}</span>
                   <span>Lon: {alert.lon.toFixed(4)}</span>

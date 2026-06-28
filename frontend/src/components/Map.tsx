@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl, useMap, Polyline, FeatureGroup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { dictionary, translateAlertMsg, translateAlertType, translateTrackName, type Language, type DictionaryKey } from '@/lib/translations';
+import { dictionary, translateAlertMsg, translateAlertType, translateTrackName, translateNearbyCities, type Language, type DictionaryKey } from '@/lib/translations';
 
 interface AlertData {
   id: string;
@@ -11,6 +11,7 @@ interface AlertData {
   level: string;
   message: string;
   timestamp: string;
+  nearby_cities?: string;
 }
 
 interface MetricData {
@@ -398,6 +399,12 @@ export default function Map({
                 </span>
               </div>
               <p className="font-semibold text-slate-850 mt-1">{translateAlertMsg(selectedAlert.message, lang)}</p>
+              {selectedAlert.nearby_cities && (
+                <div className="text-[11px] text-teal-600 font-medium mt-1 flex items-center gap-1">
+                  <span>📍</span>
+                  <span>{translateNearbyCities(selectedAlert.nearby_cities, lang)}</span>
+                </div>
+              )}
               <div className="text-[10px] text-slate-400 mt-2 border-t pt-1 flex justify-between font-mono">
                 <span>{t('latitude')}: {selectedAlert.lat.toFixed(4)}</span>
                 <span>{t('longitude')}: {selectedAlert.lon.toFixed(4)}</span>

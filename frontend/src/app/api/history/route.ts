@@ -4,14 +4,9 @@ import { db } from '@/lib/firebase-admin';
 export const dynamic = 'force-dynamic';
 
 const VALID_VARIABLES = ['chl', 'o2', 'litter_density'] as const;
-const COORD_TOLERANCE = 0.01; // ~1.1km tolerance for coordinate matching
-const MAX_HISTORY_DOCS = 500; // Cap to prevent unbounded reads
 
-interface MetricRecord {
+interface MetricHistoryEntry {
   timestamp: string;
-  lat: number;
-  lon: number;
-  variable: string;
   value: number;
 }
 
@@ -41,31 +36,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Invalid variable. Must be one of: ${VALID_VARIABLES.join(', ')}` }, { status: 400 });
     }
 
-    // Fetch metrics ordered by timestamp with a safety limit.
-    // Note: combining .where('variable') with .orderBy('timestamp') requires a
-    // composite index in Firestore. To avoid index dependency, we filter in-memory
-    // but cap total reads with .limit() to prevent unbounded queries.
-    const metricsSnapshot = await db.collection('metrics')
-      .orderBy('timestamp', 'asc')
-      .limit(MAX_HISTORY_DOCS)
-      .get();
-
-    const history: MetricRecord[] = metricsSnapshot.docs
-      .map(doc => {
-        const data = doc.data();
-        return {
-          timestamp: data.timestamp as string,
-          lat: data.lat as number,
-          lon: data.lon as number,
-          variable: data.variable as string,
-          value: data.value as number,
-        };
-      })
-      .filter(m => {
-        return m.variable === variable &&
-               Math.abs(m.lat - targetLat) < COORD_TOLERANCE &&
-               Math.abs(m.lon - targetLon) < COORD_TOLERANCE;
-      });
+    // Generate consistent document ID: lat_lon_var (using fixed 4 decimal places matching Python uploader)
+    const docId = `${targetLat.toFixed(4)}_${targetLon.toFixed(4)}_${variable}`;
+    
+    // Exactly 1 document read replacing the old 500 reads unbounded query!
+    const doc = await db.collection('time_series').doc(docId).get();
+    
+    let history: MetricHistoryEntry[] = [];
+    
+    if (doc.exists) {
+      const data = doc.data();
+      history = (data?.history || []) as MetricHistoryEntry[];
+    } else {
+      console.warn(`Time series document not found for ID: ${docId}`);
+      
+      // Fallback: If for some float rounding reason the doc is not found, we can do a fallback
+      // search on the coordinate neighborhood. However, in standard flows this is bypassed.
+      const tolerance = 0.01;
+      const fallbackSnapshot = await db.collection('time_series')
+        .where('variable', '==', variable)
+        .where('lat', '>=', targetLat - tolerance)
+        .where('lat', '<=', targetLat + tolerance)
+        .limit(5)
+        .get();
+        
+      if (!fallbackSnapshot.empty) {
+        // Find the closest point and extract history
+        let closestDoc = fallbackSnapshot.docs[0];
+        let minDistance = Infinity;
+        
+        for (const fDoc of fallbackSnapshot.docs) {
+          const fData = fDoc.data();
+          const dist = Math.pow(fData.lat - targetLat, 2) + Math.pow(fData.lon - targetLon, 2);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestDoc = fDoc;
+          }
+        }
+        
+        console.log(`Fallback matched closest doc: ${closestDoc.id}`);
+        history = (closestDoc.data()?.history || []) as MetricHistoryEntry[];
+      }
+    }
 
     return NextResponse.json({ history }, {
       headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' }

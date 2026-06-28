@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from datetime import datetime
-from firebase_uploader import upload_alert, upload_metrics, upload_litter_tracks, upload_enso_metrics
+from firebase_uploader import upload_alert, upload_metrics, upload_litter_tracks, upload_enso_metrics, commit_dashboard
 import math
 from global_land_mask import globe
 import random
@@ -346,6 +346,9 @@ def analyze_and_upload():
         
     # Analyze ENSO (Method 1)
     analyze_enso()
+    
+    # Commit all aggregated metrics, alerts, and tracks in one go
+    commit_dashboard()
         
     print("Analysis and upload complete.")
 

@@ -297,3 +297,81 @@ export function translateTrackName(name: string, lang: Language): string {
   return translateTrackNameInner(name);
 }
 
+const cityMap: Record<string, string> = {
+  "上海": "Shanghai",
+  "广州": "Guangzhou",
+  "深圳": "Shenzhen",
+  "香港": "Hong Kong",
+  "澳门": "Macau",
+  "珠海": "Zhuhai",
+  "湛江": "Zhanjiang",
+  "北海": "Beihai",
+  "海口": "Haikou",
+  "三亚": "Sanya",
+  "汕头": "Shantou",
+  "厦门": "Xiamen",
+  "泉州": "Quanzhou",
+  "漳州": "Zhangzhou",
+  "福州": "Fuzhou",
+  "温州": "Wenzhou",
+  "台州": "Taizhou",
+  "宁波": "Ningbo",
+  "舟山": "Zhoushan",
+  "嘉兴": "Jiaxing",
+  "南通": "Nantong",
+  "盐城": "Yancheng",
+  "连云港": "Lianyungang",
+  "日照": "Rizhao",
+  "青岛": "Qingdao",
+  "威海": "Weihai",
+  "烟台": "Yantai",
+  "潍坊": "Weifang",
+  "东营": "Dongying",
+  "滨州": "Binzhou",
+  "沧州": "Cangzhou",
+  "天津": "Tianjin",
+  "唐山": "Tangshan",
+  "秦皇岛": "Qinhuangdao",
+  "葫芦岛": "Huludao",
+  "锦州": "Jinzhou",
+  "盘锦": "Panjin",
+  "营口": "Yingkou",
+  "大连": "Dalian",
+  "丹东": "Dandong",
+  "阳江": "Yangjiang",
+  "茂名": "Maoming",
+  "防城港": "Fangchenggang",
+  "钦州": "Qinzhou",
+  "台北": "Taipei",
+  "高雄": "Kaohsiung",
+  "基隆": "Keelung",
+  "台中": "Taichung",
+  "新竹": "Hsinchu",
+  "花莲": "Hualien"
+};
+
+export function translateNearbyCities(citiesStr: string, lang: Language): string {
+  if (lang === 'zh') return citiesStr;
+  
+  if (!citiesStr) return '';
+  
+  if (citiesStr.includes('周边') && citiesStr.includes('内无')) {
+    const match = citiesStr.match(/周边(\d+)公里内无主要城市/);
+    const dist = match ? match[1] : '100';
+    return `No major cities/populated areas within ${dist}km`;
+  }
+  
+  if (citiesStr === '不适用') return 'N/A';
+  
+  return citiesStr.split(', ').map(part => {
+    const match = part.match(/(.*?)\s*\(约([\d.]+)\s*公里\)/);
+    if (match) {
+      const cityCn = match[1].trim();
+      const dist = match[2];
+      const cityEn = cityMap[cityCn] || cityCn;
+      return `${cityEn} (approx. ${dist}km)`;
+    }
+    return part;
+  }).join(', ');
+}
+
